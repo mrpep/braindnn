@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 class GridSearch:
     def __init__(self, grid, extend_edges=True):
@@ -19,13 +20,14 @@ class GridSearch:
 
     def find(self, fn):
         results = np.array([fn(xi) for xi in self.grid])
+
         idx_best = np.argmax(results)
-        if self.extend_edges:
+        if self.extend_edges is not None:
             while True:
                 new_hyp = {}
                 extend = False
                 for k,v in self.grid[idx_best].items():
-                    if v in self.bounds[k]:
+                    if (v in self.bounds[k]) and (k in self.extend_edges):
                         extend = True
                         if v == self.bounds[k][0]:
                             new_hyp[k] = v / 2
@@ -41,9 +43,11 @@ class GridSearch:
                     idx_best = np.argmax(results)
                 else:
                     break
-
+        results_df = pd.DataFrame(self.grid)
+        results_df['score'] = results
         best_model = self.grid[idx_best]
-        return best_model, results
+
+        return best_model, results_df
 
 def search_hyperparameters_cv(x, y, folds, metric_fn, hyper_fn, model_cls):
     def train_one(hyp):
@@ -51,8 +55,12 @@ def search_hyperparameters_cv(x, y, folds, metric_fn, hyper_fn, model_cls):
         for fold in np.unique(folds):
             test_mask = (folds == fold)
             train_mask = (folds != fold)
-            x_test, y_test = x[test_mask], y[test_mask]
-            x_train, y_train = x[train_mask], y[train_mask]
+            y_train, y_test = y[train_mask], y[test_mask]
+            if isinstance(x, dict):
+                x_train = {k: v[train_mask] for k,v in x.items()}
+                x_test = {k: v[test_mask] for k,v in x.items()}
+            else:
+                x_train, x_test = x[train_mask], x[test_mask]
             model = model_cls(**hyp)
             model.fit(x_train, y_train)
             all_preds[test_mask] = model.predict(x_test)

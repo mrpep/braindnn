@@ -8,11 +8,13 @@ from hyper import search_hyperparameters_cv
 import pandas as pd
 
 class RidgeWithNorm:
-    def __init__(self, alpha, demean_x=True, demean_y=True):
+    def __init__(self, alpha, layer, demean_x=True, demean_y=True):
         self.model = Ridge(alpha)
         self.demean_x, self.demean_y = demean_x, demean_y
+        self.layer = layer
         
     def fit(self, x, y):
+        x = x[self.layer]
         if self.demean_x:
             self.mean_x = x.mean(axis=0)
         else:
@@ -24,6 +26,7 @@ class RidgeWithNorm:
         self.model.fit(x - self.mean_x, y - self.mean_y)
         
     def predict(self, x):
+        x = x[self.layer]
         return self.model.predict(x - self.mean_x) + self.mean_y
 
 def nested_xval(x, y, folds, hyper_fn, model_cls, metric_fns, save_search_results=True, save_preds=False):
@@ -32,8 +35,14 @@ def nested_xval(x, y, folds, hyper_fn, model_cls, metric_fns, save_search_result
     for fold in np.unique(folds):
         train_mask = (folds != fold)
         test_mask = (folds == fold)
-        x_train, y_train = x[train_mask], y[train_mask]
-        x_test, y_test = x[test_mask], y[test_mask]
+        
+        y_train, y_test = y[train_mask], y[test_mask]
+        if isinstance(x, dict):
+            x_train = {k: v[train_mask] for k,v in x.items()}
+            x_test = {k: v[test_mask] for k,v in x.items()}
+        else:
+            x_train, x_test = x[train_mask], x[test_mask]
+
         best_model, search_results = search_hyperparameters_cv(x_train, y_train, folds[train_mask], metric_fns[0], hyper_fn, model_cls)
         best_model.fit(x_train, y_train)
         all_preds[test_mask] = best_model.predict(x_test)

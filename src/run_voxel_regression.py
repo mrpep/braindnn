@@ -2,32 +2,43 @@ from data import load_fmri, load_activations
 import numpy as np
 from hyper import GridSearch
 from learning import RidgeWithNorm, nested_xval
-from sklearn.metrics import r2_score
 from tqdm import tqdm
 from functools import partial
+import joblib
 
-FMRI_DATA = '/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/data/neural/NH2015'
-ACTIVATION_DATA = '/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/model_actv/mel256-ec-base'
-LAYER = 8
+def r2_score(x,y):
+    r = np.corrcoef(x.ravel(), y.ravel())[1,0]
+    return r**2
+
+#from sklearn.metrics import r2_score
+
+DATASET='NH2015'
+MODEL='mel256-ec-base'
+FMRI_DATA = f'/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/data/neural/{DATASET}'
+ACTIVATION_DATA = f'/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/model_actv/{MODEL}'
 
 fmri_data = load_fmri(FMRI_DATA)
 activations = load_activations(ACTIVATION_DATA, fmri_data['stimuli_metadata'])
 
-folds = np.random.permutation(np.repeat(np.arange(0,5),33))
+#folds = np.random.permutation(np.repeat(np.arange(0,5),33))
+folds = joblib.load('lists/stratified-fold-assignment.pkl')
 
 def create_grid():
-    return GridSearch(grid = [{'alpha': xi} for xi in [0.01,0.1,1.0,5.0,10.0,100.0]],
-                      extend_edges=True)
+    return GridSearch(grid = [{'alpha': alpha_i,
+                               'layer': layer_i} for alpha_i in [0.01,0.05,0.1,0.5,1.0,5.0,10.0,50.0] for layer_i in activations.keys()],
+                      extend_edges=['alpha'])
 
 hyp_fn = create_grid
-x = activations[LAYER]
-
-voxel_results = []
 NUM_VOXELS = fmri_data['voxel_features'].shape[1]
+voxel_results = []
+
 for i in tqdm(range(NUM_VOXELS)):
     y = fmri_data['voxel_features'][:,i].mean(axis=-1)
-    result_i = nested_xval(x,y,folds,hyp_fn,RidgeWithNorm,[r2_score])
-    voxel_results.append(result_i)
-    
-from IPython import embed; embed()
-
+    if np.any(np.isnan(y)):
+        print(f'Ignoring voxel {i} as it contains NANs')
+    else:
+        result_i = nested_xval(activations,y,folds,hyp_fn,RidgeWithNorm,[r2_score])
+        result_i['voxel_id'] = i
+        voxel_results.append(result_i)
+        
+joblib.dump(voxel_results, f'{DATASET}_{MODEL}.pkl')
