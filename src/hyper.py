@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 class GridSearch:
-    def __init__(self, grid, extend_edges=True):
+    def __init__(self, grid, extend_edges=True, edge_limits=None):
         self.grid = grid
         self.extend_edges = extend_edges
         if self.extend_edges:
@@ -17,6 +17,7 @@ class GridSearch:
             self.bounds = {k: [np.min(v), np.max(v)] for k,v in vals_by_arg.items()}
         else:
             self.bounds = None
+        self.edge_limits = edge_limits
 
     def find(self, fn):
         results = np.array([fn(xi) for xi in self.grid])
@@ -28,13 +29,17 @@ class GridSearch:
                 extend = False
                 for k,v in self.grid[idx_best].items():
                     if (v in self.bounds[k]) and (k in self.extend_edges):
-                        extend = True
-                        if v == self.bounds[k][0]:
-                            new_hyp[k] = v / 2
-                            self.bounds[k][0] = v/2
+                        if not ((v/2 < self.edge_limits[k][0]) or (v*2 > self.edge_limits[k][1])):
+                            extend = True
+                            print(v)
+                            if v == self.bounds[k][0]:
+                                new_hyp[k] = v / 2
+                                self.bounds[k][0] = v/2
+                            else:
+                                new_hyp[k] = v*2
+                                self.bounds[k][1] = v*2
                         else:
-                            new_hyp[k] = v*2
-                            self.bounds[k][1] = v*2
+                            print(f'Exceeded limit for hyperparameter {k}')
                     else:
                         new_hyp[k] = v
                 if extend:
