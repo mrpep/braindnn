@@ -13,8 +13,7 @@ class GridSearch:
                         vals_by_arg[k].append(v)
                     else:
                         vals_by_arg[k] = [v]
-                    
-            self.bounds = {k: [np.min(v), np.max(v)] for k,v in vals_by_arg.items()}
+            self.bounds = {k: [np.min(v), np.max(v)] for k,v in vals_by_arg.items() if k in self.extend_edges}
         else:
             self.bounds = None
         self.edge_limits = edge_limits
@@ -28,10 +27,9 @@ class GridSearch:
                 new_hyp = {}
                 extend = False
                 for k,v in self.grid[idx_best].items():
-                    if (v in self.bounds[k]) and (k in self.extend_edges):
+                    if (k in self.extend_edges) and (v in self.bounds[k]):
                         if not ((v/2 < self.edge_limits[k][0]) or (v*2 > self.edge_limits[k][1])):
                             extend = True
-                            print(v)
                             if v == self.bounds[k][0]:
                                 new_hyp[k] = v / 2
                                 self.bounds[k][0] = v/2

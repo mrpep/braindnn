@@ -1,11 +1,41 @@
-from data import load_fmri, load_activations
+import warnings
 import numpy as np
+
+warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)  # Just in case
+warnings.filterwarnings("ignore", category=UserWarning)
+
+from data import load_fmri, load_activations
+
 from hyper import GridSearch
 from learning import RidgeWithNorm, nested_xval
 from tqdm import tqdm
 from functools import partial
 import joblib
 from sklearn.metrics import r2_score
+
+from joblib import Parallel, delayed
+from contextlib import contextmanager
+from joblib.parallel import BatchCompletionCallBack
+import joblib.parallel
+
+
+
+@contextmanager
+def tqdm_joblib(tqdm_object):
+    class TqdmBatchCompletionCallback(BatchCompletionCallBack):
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
+
+    old_callback = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_callback
+        tqdm_object.close()
 
 def r2_score(x,y):
     if np.std(x) == 0:
@@ -17,12 +47,10 @@ def r2_score(x,y):
         return r**2
 
 #from sklearn.metrics import r2_score
-MODELS = ['mel256-ec-base',
-          'mel256-ec-base_st-nopn',
-          'spec-ec-base',
-          'ec-ec-base',
-          'mel256-ec-small']
-
+#MODELS = ['mel256-ec-base-step-500000']
+#Falta 'VGGish'
+MODELS = ['wav2vec2',
+          'ZeroSpeech2020']
 for MODEL in MODELS:
     DATASET='NH2015'
     #MODEL='mel256-ec-base'
@@ -42,17 +70,26 @@ for MODEL in MODELS:
                           extend_edges=['alpha'],
                           edge_limits={'alpha': [1e-49, 1e50]})
 
-    hyp_fn = create_grid
-    NUM_VOXELS = fmri_data['voxel_features'].shape[1]
-    voxel_results = []
-
-    for i in tqdm(range(NUM_VOXELS)):
+    def regress_voxel(i):
+        import warnings
+        warnings.filterwarnings("ignore")
         y = fmri_data['voxel_features'][:,i].mean(axis=-1)
         if np.any(np.isnan(y)):
             print(f'Ignoring voxel {i} as it contains NANs')
+            return None
         else:
             result_i = nested_xval(activations,y,folds,hyp_fn,RidgeWithNorm,[r2_score])
             result_i['voxel_id'] = i
-            voxel_results.append(result_i)
-            
+            return result_i
+
+    hyp_fn = create_grid
+    NUM_VOXELS = fmri_data['voxel_features'].shape[1]
+    #voxel_results = []
+
+    with tqdm_joblib(tqdm(desc="Training models", total=NUM_VOXELS)) as progress_bar:
+        results = Parallel(n_jobs=30)(
+            delayed(regress_voxel)(i) for i in range(NUM_VOXELS)
+        )
+    voxel_results = [r for r in results if r is not None]
+        
     joblib.dump(voxel_results, f'{DATASET}_{MODEL}.pkl')
