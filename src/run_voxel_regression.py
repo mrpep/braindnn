@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from joblib.parallel import BatchCompletionCallBack
 import joblib.parallel
 
-
+layer_map = {'spectemp': ['avgpool']}
 
 @contextmanager
 def tqdm_joblib(tqdm_object):
@@ -49,17 +49,17 @@ def r2_score(x,y):
 #from sklearn.metrics import r2_score
 #MODELS = ['mel256-ec-base-step-500000']
 #Falta 'VGGish'
-MODELS = ['wav2vec2',
-          'ZeroSpeech2020']
+MODELS = ['spectemp']
 for MODEL in MODELS:
     DATASET='NH2015'
     #MODEL='mel256-ec-base'
     FMRI_DATA = f'/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/data/neural/{DATASET}'
     ACTIVATION_DATA = f'/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/model_actv/{MODEL}'
     FOLD_FILE = '/home/lpepino/braindnn/braindnn-enhanced/lists/stratified-fold-assignment.pkl'
+    layer_filter = layer_map.get(MODEL)
 
     fmri_data = load_fmri(FMRI_DATA)
-    activations = load_activations(ACTIVATION_DATA, fmri_data['stimuli_metadata'])
+    activations = load_activations(ACTIVATION_DATA, fmri_data['stimuli_metadata'], layer_filter)
 
     #folds = np.random.permutation(np.repeat(np.arange(0,5),33))
     folds = joblib.load(FOLD_FILE)
