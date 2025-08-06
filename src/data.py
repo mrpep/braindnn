@@ -18,8 +18,15 @@ def load_activations(path, stimuli_metadata, layer_filter=None):
     activations_ = {}
     if h5_path.exists():
         with h5py.File(h5_path, 'r') as f:
-            for k in f.keys():
-                activations_[k] = f[k][:]
+            if layer_filter is not None:
+                keys = layer_filter
+            else:
+                keys = f.keys()
+            for k in keys:
+                try:
+                    activations_[k] = f[k][:]
+                except:
+                    from IPython import embed; embed()
     else:
         activations = []
         for idx, row in stimuli_metadata.iterrows():
@@ -29,6 +36,7 @@ def load_activations(path, stimuli_metadata, layer_filter=None):
         for k in activations[0].keys():
             activations_[k] = np.array([a[k] for a in activations])
 
-    if layer_filter is not None:
-        activations_ = {k:v for k,v in activations_.items() if k in layer_filter}
+    #if layer_filter is not None:
+    #
+    # activations_ = {k:v for k,v in activations_.items() if k in layer_filter}
     return activations_

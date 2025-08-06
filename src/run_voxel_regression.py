@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from joblib.parallel import BatchCompletionCallBack
 import joblib.parallel
 
-layer_map = {'spectemp': ['avgpool']}
+from specs import layer_map
 
 @contextmanager
 def tqdm_joblib(tqdm_object):
@@ -49,7 +49,7 @@ def r2_score(x,y):
 #from sklearn.metrics import r2_score
 #MODELS = ['mel256-ec-base-step-500000']
 #Falta 'VGGish'
-MODELS = ['spectemp']
+MODELS = ['Kell2018audioset', 'Kell2018multitask', 'Kell2018music', 'Kell2018speaker', 'Kell2018word']
 for MODEL in MODELS:
     DATASET='NH2015'
     #MODEL='mel256-ec-base'
@@ -60,7 +60,6 @@ for MODEL in MODELS:
 
     fmri_data = load_fmri(FMRI_DATA)
     activations = load_activations(ACTIVATION_DATA, fmri_data['stimuli_metadata'], layer_filter)
-
     #folds = np.random.permutation(np.repeat(np.arange(0,5),33))
     folds = joblib.load(FOLD_FILE)
 
