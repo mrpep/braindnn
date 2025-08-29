@@ -35,6 +35,8 @@ def load_activations(path, stimuli_metadata, layer_filter=None):
                 activations.append(pickle.load(f))
         for k in activations[0].keys():
             activations_[k] = np.array([a[k] for a in activations])
+        if layer_filter is not None:
+            activations_ = {k:v for k,v in activations_.items() if k in layer_filter}
 
     #if layer_filter is not None:
     #
