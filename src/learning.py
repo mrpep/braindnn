@@ -4,6 +4,7 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
 import pickle
 from hyper import search_hyperparameters_cv
+from scipy import stats
 
 import pandas as pd
 
@@ -28,6 +29,34 @@ class RidgeWithNorm:
     def predict(self, x):
         x = x[self.layer]
         return self.model.predict(x - self.mean_x) + self.mean_y
+
+class RSA:
+    def __init__(self, pairwise_distance='pearson', rdm_distance='spearman'):
+        self.pairwise_distance, self.rdm_distance = pairwise_distance, rdm_distance
+
+    def calculate_rdm(self, x):
+        if self.pairwise_distance == 'pearson':
+            return np.corrcoef(x)
+        elif self.pairwise_distance == 'spearman':
+            rdm, _ = stats.spearmanr(x.T)
+            return rdm
+
+    def calculate_matrix_distance(self, x, y, mask=None):
+        upper_tri = np.triu_indices_from(x, k=1)
+        if mask is not None:
+            combined_mask = mask[upper_tri]
+            upper_tri = (upper_tri[0][combined_mask], upper_tri[1][combined_mask])
+        if self.rdm_distance == 'pearson':
+            r, _ = stats.pearsonr(x[upper_tri], y[upper_tri])
+        elif self.rdm_distance == 'spearman':
+            r, _ = stats.spearmanr(x[upper_tri], y[upper_tri])
+        return r
+
+    def fit(self, x, y):
+        self.rdm_x = self.calculate_rdm(x)
+        self.rdm_y = self.calculate_rdm(y)
+
+        self.r = self.calculate_matrix_distance(self.rdm_x, self.rdm_y)      
 
 def nested_xval(x, y, folds, hyper_fn, model_cls, metric_fns, save_search_results=True, save_preds=False):
     all_preds = np.zeros_like(y)
@@ -56,3 +85,26 @@ def nested_xval(x, y, folds, hyper_fn, model_cls, metric_fns, save_search_result
         results['preds'] = all_preds
         results['y'] = y
     return results
+
+def rsa_layer_select(x,y,selection_method='cv', folds=None):
+    unique_folds = np.unique(folds)
+    test_rdm = np.zeros((x.shape[0], x.shape[0]))
+    selected_layer = np.zeros((x.shape[0], x.shape[0]))
+    layer_names = list(y.keys())
+    layer_rdms = []
+    rsa_model = RSA()
+    fmri_rdm = rsa_model.calculate_rdm(x)
+    for l in layer_names:
+        rdm = rsa_model.calculate_rdm(y[l])
+        layer_rdms.append(rdm)
+    
+    for i in range(len(unique_folds)):
+        for j in range(i, len(unique_folds)):
+            mask_stimuli_1 = folds == unique_folds[i]
+            mask_stimuli_2 = folds == unique_folds[j]
+            rdm_train_mask = ~mask_stimuli_1[:,None] * ~mask_stimuli_2[None,:]
+            train_r = [rsa_model.calculate_matrix_distance(fmri_rdm, rdm_y, mask=rdm_train_mask) for rdm_y in layer_rdms]
+            test_rdm[~rdm_train_mask] = layer_rdms[np.argmax(train_r)][~rdm_train_mask]
+            selected_layer[~rdm_train_mask] = np.argmax(train_r)
+    final_r = rsa_model.calculate_matrix_distance(fmri_rdm, test_rdm)
+    return final_r, test_rdm, selected_layer
