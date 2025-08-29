@@ -1,6 +1,27 @@
 #layer_map contains for each model the keys of the activation files that will be used.
 ############################################################################################################
-
+ALL_MODELS = ['AST',
+              'BEATs_iter1','BEATs_iter2','BEATs_iter3_finetuned_on_AS2M_cpt1','BEATs_iter3',
+              'dasheng_06B', 'dasheng_12B', 'dasheng_base_ft-as','dasheng_base',
+              'DCASE2020', 'DS2',
+              'ec-ec-base', 
+              'Kell2018audioset', 'Kell2018multitask', 'Kell2018music', 'Kell2018speaker', 'Kell2018word',
+              'mel256-ec-base_st-nopn',
+              'mel256-ec-base-as',
+              'mel256-ec-base-fma',
+              'mel256-ec-base-ll',
+              'mel256-ec-base',
+              'mel256-ec-large_st-nopn',
+              'mel256-ec-large',
+              'mel256-ec-small',
+              'ResNet50audioset', 'ResNet50multitask','ResNet50music','ResNet50speaker','ResNet50word',
+              'sepformer',
+              'spec-ec-base',
+              'spectemp',
+              'VGGish',
+              'wav2vec',
+              'wav2vec2',
+              'ZeroSpeech2020']
 layer_map = {'spectemp': ['avgpool'],
              'VGGish': ['ReLU()--0',
                         'MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)--0',

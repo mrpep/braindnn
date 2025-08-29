@@ -20,9 +20,9 @@ from contextlib import contextmanager
 from joblib.parallel import BatchCompletionCallBack
 import joblib.parallel
 
-from specs import layer_map
+from specs import layer_map, ALL_MODELS
 
-MODELS = ['DS2', 'mel256-ec-large']
+MODELS = ALL_MODELS
 FOLD_FILE = '/home/lpepino/braindnn/braindnn-enhanced/lists/stratified-fold-assignment.pkl'
 
 folds = joblib.load(FOLD_FILE)

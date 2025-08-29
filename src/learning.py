@@ -31,15 +31,21 @@ class RidgeWithNorm:
         return self.model.predict(x - self.mean_x) + self.mean_y
 
 class RSA:
-    def __init__(self, pairwise_distance='pearson', rdm_distance='spearman'):
+    def __init__(self, 
+                 pairwise_distance='pearson', 
+                 rdm_distance='spearman',
+                 zscore=True):
         self.pairwise_distance, self.rdm_distance = pairwise_distance, rdm_distance
+        self.zscore = zscore
 
-    def calculate_rdm(self, x):
+    def calculate_rdm(self, x, eps=1e-10):
+        if self.zscore:
+            x = (x - np.mean(x, axis=0))/(np.std(x, axis=0)+eps)
         if self.pairwise_distance == 'pearson':
-            return np.corrcoef(x)
+            return 1 - np.corrcoef(x)
         elif self.pairwise_distance == 'spearman':
             rdm, _ = stats.spearmanr(x.T)
-            return rdm
+            return 1 - rdm
 
     def calculate_matrix_distance(self, x, y, mask=None):
         upper_tri = np.triu_indices_from(x, k=1)
