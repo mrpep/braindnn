@@ -6,12 +6,14 @@ import h5py
 from scipy.io import loadmat
 
 NUM_STIMULI = 165
-def load_fmri(path):
-    if 'B2021' in path:
-        voxel_data = np.load(Path(path, 'voxel_features_array.npy'))
+def load_fmri(path, dataset='B2021'):
+    fmri_path = Path(path, dataset)
+    stim_data = np.load(Path(path,'NH2015', 'neural_stim_meta.npy'))
+    if dataset == 'B2021':
+        voxel_data = np.load(Path(fmri_path, 'voxel_features_array.npy'))
         voxel_data = voxel_data[:NUM_STIMULI]
-        voxel_metadata = pd.read_pickle(Path(path, 'df_roi_meta.pkl'))
-        stimuli_metadata = loadmat(Path(path, 'stim_info_v4.mat'))['stim_info']
+        voxel_metadata = pd.read_pickle(Path(fmri_path, 'df_roi_meta.pkl'))
+        stimuli_metadata = loadmat(Path(fmri_path, 'stim_info_v4.mat'))['stim_info']
         stimuli_metadata = {'cat_assignment': [stimuli_metadata[0][0][0][idx-1][0][0][0] for idx in stimuli_metadata[0][0][1][:NUM_STIMULI]],
                             'cat_assignment_idx': stimuli_metadata[0][0][1][:NUM_STIMULI,0],
                             'fmri_stim_num': stimuli_metadata[0][0][3][:NUM_STIMULI,0],
@@ -20,11 +22,22 @@ def load_fmri(path):
                             'embedded-wav-start-idx': 0,
                             'fmri_stim_idx': np.arange(NUM_STIMULI),
                             'id': np.arange(NUM_STIMULI)}
+    elif dataset == 'NH2015comp':
+        data = loadmat(Path(fmri_path, 'components.mat'))
+        response = data['R']
+        stim_names = [x[0]+'.wav' for x in data['stim_names'][0]]
+        stim_order = {x: i for i,x in enumerate(stim_names)}
+        stim_reorder = [stim_order[s.decode('utf8')] for s in stim_data['filename'][:]]
+        
+        voxel_data = response[stim_reorder]
+        voxel_metadata = pd.read_pickle(Path(fmri_path,'df_roi_meta.pkl'))
+        stimuli_metadata = stim_data
+    elif dataset == 'NH2015':
+        voxel_data = np.load(Path(fmri_path, 'voxel_features_array.npy'))
+        voxel_metadata = np.load(Path(fmri_path, 'voxel_features_meta.npy'))
+        stimuli_metadata = np.load(Path(fmri_path, 'neural_stim_meta.npy'))
     else:
-        voxel_data = np.load(Path(path, 'voxel_features_array.npy'))
-        voxel_metadata = np.load(Path(path, 'voxel_features_meta.npy'))
-        stimuli_metadata = np.load(Path(path, 'neural_stim_meta.npy'))
-    
+        raise Exception(f'Unknown dataset name: {dataset}')
     return {'voxel_features': voxel_data,
             'voxel_metadata': pd.DataFrame(voxel_metadata),
             'stimuli_metadata': pd.DataFrame(stimuli_metadata).set_index('id')}

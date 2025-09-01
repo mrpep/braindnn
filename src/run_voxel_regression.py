@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from joblib.parallel import BatchCompletionCallBack
 import joblib.parallel
 
-from specs import layer_map
+from specs import layer_map, ALL_MODELS
 
 @contextmanager
 def tqdm_joblib(tqdm_object):
@@ -49,16 +49,20 @@ def r2_score(x,y):
 #from sklearn.metrics import r2_score
 #MODELS = ['mel256-ec-base-step-500000']
 #Falta 'VGGish'
-MODELS = ['Kell2018audioset', 'Kell2018multitask', 'Kell2018music', 'Kell2018speaker', 'Kell2018word']
+MODELS = ALL_MODELS
+DATASET='NH2015comp'
+if DATASET == 'NH2015comp':
+    NUM_JOBS=1
+else:
+    NUM_JOBS=30
 for MODEL in MODELS:
-    DATASET='NH2015'
     #MODEL='mel256-ec-base'
-    FMRI_DATA = f'/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/data/neural/{DATASET}'
+    FMRI_DATA = f'/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/data/neural'
     ACTIVATION_DATA = f'/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/model_actv/{MODEL}'
     FOLD_FILE = '/home/lpepino/braindnn/braindnn-enhanced/lists/stratified-fold-assignment.pkl'
     layer_filter = layer_map.get(MODEL)
 
-    fmri_data = load_fmri(FMRI_DATA)
+    fmri_data = load_fmri(FMRI_DATA, DATASET)
     activations = load_activations(ACTIVATION_DATA, fmri_data['stimuli_metadata'], layer_filter)
     #folds = np.random.permutation(np.repeat(np.arange(0,5),33))
     folds = joblib.load(FOLD_FILE)
@@ -72,7 +76,10 @@ for MODEL in MODELS:
     def regress_voxel(i):
         import warnings
         warnings.filterwarnings("ignore")
-        y = fmri_data['voxel_features'][:,i].mean(axis=-1)
+        if fmri_data['voxel_features'].ndim == 3:
+            y = fmri_data['voxel_features'][:,i].mean(axis=-1)
+        else:
+            y = fmri_data['voxel_features'][:,i]
         if np.any(np.isnan(y)):
             print(f'Ignoring voxel {i} as it contains NANs')
             return None
@@ -83,10 +90,9 @@ for MODEL in MODELS:
 
     hyp_fn = create_grid
     NUM_VOXELS = fmri_data['voxel_features'].shape[1]
-    #voxel_results = []
 
     with tqdm_joblib(tqdm(desc="Training models", total=NUM_VOXELS)) as progress_bar:
-        results = Parallel(n_jobs=30)(
+        results = Parallel(n_jobs=NUM_JOBS)(
             delayed(regress_voxel)(i) for i in range(NUM_VOXELS)
         )
     voxel_results = [r for r in results if r is not None]
