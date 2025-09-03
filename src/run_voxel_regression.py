@@ -21,6 +21,9 @@ from joblib.parallel import BatchCompletionCallBack
 import joblib.parallel
 
 from specs import layer_map, ALL_MODELS
+import fire
+
+from pathlib import Path
 
 @contextmanager
 def tqdm_joblib(tqdm_object):
@@ -46,55 +49,61 @@ def r2_score(x,y):
             r = 0
         return r**2
 
-#from sklearn.metrics import r2_score
-#MODELS = ['mel256-ec-base-step-500000']
-#Falta 'VGGish'
-MODELS = ALL_MODELS
-DATASET='NH2015comp'
-if DATASET == 'NH2015comp':
-    NUM_JOBS=1
-else:
-    NUM_JOBS=30
-for MODEL in MODELS:
-    #MODEL='mel256-ec-base'
-    FMRI_DATA = f'/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/data/neural'
-    ACTIVATION_DATA = f'/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/model_actv/{MODEL}'
-    FOLD_FILE = '/home/lpepino/braindnn/braindnn-enhanced/lists/stratified-fold-assignment.pkl'
-    layer_filter = layer_map.get(MODEL)
+def run_regression(model='all', dataset='NH2015', output_dir='results'):
+    if model == 'all':
+        models = ALL_MODELS + ['topline']
+    else:
+        models = [model]
 
-    fmri_data = load_fmri(FMRI_DATA, DATASET)
-    activations = load_activations(ACTIVATION_DATA, fmri_data['stimuli_metadata'], layer_filter)
-    #folds = np.random.permutation(np.repeat(np.arange(0,5),33))
-    folds = joblib.load(FOLD_FILE)
+    if dataset == 'NH2015comp':
+        num_jobs=1
+    else:
+        num_jobs=30
 
-    def create_grid():
-        return GridSearch(grid = [{'alpha': alpha_i,
-                                'layer': layer_i} for alpha_i in [0.01,0.05,0.1,0.5,1.0,5.0,10.0,50.0] for layer_i in activations.keys()],
-                          extend_edges=['alpha'],
-                          edge_limits={'alpha': [1e-49, 1e50]})
+    fold_file=Path(__file__, '../../lists/stratified-fold-assignment.pkl').resolve()
+    fmri_dir=Path(__file__, '../../data/neural').resolve()
+    fmri_data = load_fmri(fmri_dir, dataset)
+    folds = joblib.load(fold_file)
 
-    def regress_voxel(i):
-        import warnings
-        warnings.filterwarnings("ignore")
-        if fmri_data['voxel_features'].ndim == 3:
-            y = fmri_data['voxel_features'][:,i].mean(axis=-1)
-        else:
-            y = fmri_data['voxel_features'][:,i]
-        if np.any(np.isnan(y)):
-            print(f'Ignoring voxel {i} as it contains NANs')
-            return None
-        else:
-            result_i = nested_xval(activations,y,folds,hyp_fn,RidgeWithNorm,[r2_score])
-            result_i['voxel_id'] = i
-            return result_i
+    for m in models:
+        activation_dir = f'/home/lpepino/braindnn/tp-picml/auditory_brain_dnn/model_actv/{m}'
+        layer_filter = layer_map.get(m)
+        activations = load_activations(activation_dir, fmri_data['stimuli_metadata'], layer_filter)
 
-    hyp_fn = create_grid
-    NUM_VOXELS = fmri_data['voxel_features'].shape[1]
+        def create_grid():
+            return GridSearch(grid = [{'alpha': alpha_i,
+                                    'layer': layer_i} for alpha_i in [0.01,0.05,0.1,0.5,1.0,5.0,10.0,50.0] for layer_i in activations.keys()],
+                            extend_edges=['alpha'],
+                            edge_limits={'alpha': [1e-49, 1e50]})
 
-    with tqdm_joblib(tqdm(desc="Training models", total=NUM_VOXELS)) as progress_bar:
-        results = Parallel(n_jobs=NUM_JOBS)(
-            delayed(regress_voxel)(i) for i in range(NUM_VOXELS)
-        )
-    voxel_results = [r for r in results if r is not None]
-        
-    joblib.dump(voxel_results, f'{DATASET}_{MODEL}.pkl')
+        def regress_voxel(i):
+            import warnings
+            warnings.filterwarnings("ignore")
+            if fmri_data['voxel_features'].ndim == 3:
+                y = fmri_data['voxel_features'][:,i].mean(axis=-1)
+            else:
+                y = fmri_data['voxel_features'][:,i]
+            if np.any(np.isnan(y)):
+                print(f'Ignoring voxel {i} as it contains NANs')
+                return None
+            else:
+                result_i = nested_xval(activations,y,folds,hyp_fn,RidgeWithNorm,[r2_score])
+                result_i['voxel_id'] = i
+                return result_i
+
+        hyp_fn = create_grid
+        num_voxels = fmri_data['voxel_features'].shape[1]
+
+        with tqdm_joblib(tqdm(desc="Training models", total=num_voxels)) as progress_bar:
+            results = Parallel(n_jobs=num_jobs)(
+                delayed(regress_voxel)(i) for i in range(num_voxels)
+            )
+        voxel_results = [r for r in results if r is not None]
+
+        outdir = Path(output_dir, m)
+        Path(outdir).mkdir(parents=True, exist_ok=True)
+
+        joblib.dump(voxel_results, Path(outdir,f'REG_{dataset}.pkl'))
+
+if __name__ == '__main__':
+    fire.Fire(run_regression)

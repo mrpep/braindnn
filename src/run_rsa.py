@@ -75,10 +75,12 @@ def run_rsa(model='all', dataset='NH2015', output_dir='results'):
                 rdm_x = subject_rdms[~mask].mean(axis=0)
                 rsa = RSA()
                 subjects_r.append(rsa.calculate_matrix_distance(rdm_x, rdm_y))
-        if Path(output_dir).exists():
-            rsa_results = {'subject_test_rdms': None,
-                        'subjects_r': subjects_r,
-                        'subjects_layer_selection': None}
-            joblib.dump(rsa_results, Path(output_dir,f'RSA_{dataset}_{m}.pkl'))
+        outdir = Path(output_dir, m)
+        Path(outdir).mkdir(parents=True, exist_ok=True)
+        rsa_results = {'subject_test_rdms': None,
+                    'subjects_r': subjects_r,
+                    'subjects_layer_selection': None}
+        joblib.dump(rsa_results, Path(outdir,f'RSA_{dataset}.pkl'))
+
 if __name__ == '__main__':
     fire.Fire(run_rsa)
