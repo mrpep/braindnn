@@ -8,6 +8,11 @@ from scipy import stats
 
 import pandas as pd
 
+import torch
+import pytorch_lightning as pl
+
+from metrics import metric_map
+
 class RidgeWithNorm:
     def __init__(self, alpha, layer, demean_x=True, demean_y=True):
         self.model = Ridge(alpha)
@@ -63,6 +68,101 @@ class RSA:
         self.rdm_y = self.calculate_rdm(y)
 
         self.r = self.calculate_matrix_distance(self.rdm_x, self.rdm_y)      
+
+class MLP(pl.LightningModule):
+    def __init__(self, num_embeddings=1,
+                 input_dim=768,
+                 hidden_dims=[1024,1024],
+                 norm_after_activation=False,
+                 hidden_norm=torch.nn.BatchNorm1d,
+                 dropout=0.1,
+                 num_classes=4,
+                 lr=1e-4,
+                 metrics=None,
+                 initialization=torch.nn.init.xavier_uniform_,
+                 prediction_type='multiclass'):
+        super().__init__()
+        self.lw = torch.nn.Parameter(torch.ones(num_embeddings), requires_grad=True)
+        layers = []
+        hi = [input_dim] + hidden_dims[:-1]
+        ho = hidden_dims
+
+        for hii, hoi in zip(hi,ho):
+            #ToDo: Agregar inits
+            linear = torch.nn.Linear(hii,hoi)
+            initialization(linear.weight,
+                                gain=torch.nn.init.calculate_gain('linear'))
+            layers.append(linear)
+            if not norm_after_activation:
+                layers.append(hidden_norm(hoi))
+            layers.append(torch.nn.Dropout(dropout))
+            layers.append(torch.nn.ReLU())
+            if norm_after_activation:
+                layers.append(hidden_norm(hoi))
+        self.hidden = torch.nn.Sequential(*layers)
+        self.out_layer = torch.nn.Linear(hidden_dims[-1], num_classes)
+        initialization(self.out_layer.weight,
+                            gain=torch.nn.init.calculate_gain('relu'))
+
+        if prediction_type == 'multiclass':
+            self.loss = torch.nn.CrossEntropyLoss()
+        else:
+            self.loss = torch.nn.BCEWithLogitsLoss()
+        self.lr = lr
+
+        self.metrics = metrics
+        self.val_preds = []
+        self.test_preds = []
+
+    def forward(self, batch):
+        x = batch['embeddings']
+        if self.lw is not None:
+            lw = torch.abs(self.lw)
+            lw = lw/torch.sum(lw)
+            x = torch.sum(x * lw[None,:,None], dim=1)
+        x = self.hidden(x)
+        x = self.out_layer(x)
+        batch['y_hat'] = x
+
+    def validation_step(self, batch):
+        self(batch)
+        self.val_preds.append({'yhat': batch['y_hat'], 
+                               'y': batch['y']})
+        loss = self.loss(batch['y_hat'], batch['y'])
+        self.log('val_loss', loss)
+
+    def training_step(self, batch):
+        self(batch)
+        loss = self.loss(batch['y_hat'], batch['y'])
+        self.log('train_loss', loss)
+        return loss
+
+    def test_step(self, batch):
+        self(batch)
+        self.test_preds.append({'yhat': batch['y_hat'], 
+                               'y': batch['y']})
+        loss = self.loss(batch['y_hat'], batch['y'])
+        self.log('test_loss', loss)
+
+    def on_validation_epoch_end(self):
+        y = torch.cat([yi['y'] for yi in self.val_preds]).detach().cpu().numpy()
+        ypred = torch.cat([yi['yhat'] for yi in self.val_preds]).detach().cpu().numpy()
+        self.val_preds = []
+        for m in self.metrics:
+            if m in metric_map:
+                self.log(f'val_{m}', metric_map[m](y, ypred))
+
+    def on_test_epoch_end(self):
+        y = torch.cat([yi['y'] for yi in self.test_preds]).detach().cpu().numpy()
+        ypred = torch.cat([yi['yhat'] for yi in self.test_preds]).detach().cpu().numpy()
+        self.test_preds = []
+        for m in self.metrics:
+            if m in metric_map:
+                self.log(f'test_{m}', metric_map[m](y, ypred))
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
+
 
 def nested_xval(x, y, folds, hyper_fn, model_cls, metric_fns, save_search_results=True, save_preds=False):
     all_preds = np.zeros_like(y)

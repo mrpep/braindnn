@@ -4,6 +4,8 @@ import pandas as pd
 import pickle
 import h5py
 from scipy.io import loadmat
+import torch
+
 
 NUM_STIMULI = 165
 def load_fmri(path, dataset='B2021'):
@@ -74,3 +76,17 @@ def load_activations(path, stimuli_metadata, layer_filter=None):
     #
     # activations_ = {k:v for k,v in activations_.items() if k in layer_filter}
     return activations_
+
+class AudioDataset(torch.utils.data.Dataset):
+    def __init__(self, embeddings, labels):
+        super().__init__()
+        self.embeddings = embeddings
+        self.labels = labels
+
+    def __getitem__(self, idx):
+        return {'embeddings': self.embeddings[idx],
+                'y': self.labels[idx]}
+
+    def __len__(self):
+        return len(self.embeddings)
+        
