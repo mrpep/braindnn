@@ -11,7 +11,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
-from learning import MLP
+from learning import MLP, DynamicPCA
 from data import AudioDataset
 
 from sklearn.model_selection import ParameterGrid
@@ -51,6 +51,12 @@ def multilabel_to_ohv(data, num_labels):
         oh[i,xi]=1.0
     return oh
 
+def squeeze(x):
+    if x.ndim == 2:
+        return x[0]
+    else:
+        return x
+
 def train_test_model(train_data_files,
                 val_data_files,
                 test_data_files,
@@ -77,7 +83,6 @@ def train_test_model(train_data_files,
     test_embeddings = []
     val_embeddings = []
 
-    print(label_type)
     for p in train_pkls:
         for k,v in p['labels'].items():
             all_labels = all_labels.union(set(v))
@@ -92,21 +97,21 @@ def train_test_model(train_data_files,
                 train_labels.append([label_map[vi] for vi in v])
             else:
                 from IPython import embed; embed()
-            train_embeddings.append([p['embeddings'][k][l] for l in layer_key_order])
+            train_embeddings.append([squeeze(p['embeddings'][k][l]) for l in layer_key_order])
     for p in test_pkls:
         for k,v in p['labels'].items():
             if label_type == 'multiclass':
                 test_labels.append(label_map[v[0]])
             else:
                 test_labels.append([label_map[vi] for vi in v])
-            test_embeddings.append([p['embeddings'][k][l] for l in layer_key_order])
+            test_embeddings.append([squeeze(p['embeddings'][k][l]) for l in layer_key_order])
     for p in val_pkls:
         for k,v in p['labels'].items():
             if label_type == 'multiclass':
                 val_labels.append(label_map[v[0]])
             else:
                 val_labels.append([label_map[vi] for vi in v])
-            val_embeddings.append([p['embeddings'][k][l] for l in layer_key_order])    
+            val_embeddings.append([squeeze(p['embeddings'][k][l]) for l in layer_key_order])    
     #Make array / PCA
     model_dims = [x.shape[0] for x in train_embeddings[0]]
     if len(set(model_dims)) == 1:
@@ -116,7 +121,11 @@ def train_test_model(train_data_files,
         model_dim = model_dims[0]
     else:
         #PCA thing
-        pass
+        pca_model = DynamicPCA(model_dims, variance_threshold=0.9)
+        train_embeddings = pca_model.fit_transform(train_embeddings)
+        test_embeddings = pca_model.transform(test_embeddings)
+        val_embeddings = pca_model.transform(val_embeddings)
+        model_dim = pca_model.num_components
     if label_type == 'multiclass':
         train_labels = np.array(train_labels)
         test_labels = np.array(test_labels)
@@ -183,6 +192,7 @@ def train_test_model(train_data_files,
     scores.update(val_score)
     scores.update(test_score)
     scores['hyperparameters'] = hyp_conf
+    scores['input_dim'] = model_dim
     return scores
 
 def find_best_hyp(results, score_key='val_top1_acc'):

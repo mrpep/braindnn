@@ -2,6 +2,7 @@ import numpy as np
 from pathlib import Path
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
+from sklearn.decomposition import PCA
 import pickle
 from hyper import search_hyperparameters_cv
 from scipy import stats
@@ -68,6 +69,32 @@ class RSA:
         self.rdm_y = self.calculate_rdm(y)
 
         self.r = self.calculate_matrix_distance(self.rdm_x, self.rdm_y)      
+
+class DynamicPCA:
+    def __init__(self, layer_dims, variance_threshold=0.9):
+        self.layer_dims = layer_dims
+        self.variance_threshold = variance_threshold
+        self.pcas = [PCA() for xi in self.layer_dims]
+
+    def fit(self, x):
+        for i in range(len(x[0])):
+            xi = np.stack([xii[i] for xii in x])
+            self.pcas[i].fit(xi)
+        num_components_dynamic = [np.argwhere(np.cumsum(m.explained_variance_ratio_)>self.variance_threshold)[0,0] for m in self.pcas]
+        self.num_components = min(max(num_components_dynamic), min(self.layer_dims))
+
+    def fit_transform(self, x):
+        self.fit(x)
+        return self.transform(x)
+
+    def transform(self, x):
+        y = []
+        for i in range(len(x[0])):
+            xi = np.stack([xii[i] for xii in x])
+            yi = self.pcas[i].transform(xi)[:,:self.num_components]
+            y.append(yi)
+        y = np.stack(y)
+        return np.transpose(y, (1,0,2))    
 
 class MLP(pl.LightningModule):
     def __init__(self, num_embeddings=1,

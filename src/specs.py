@@ -92,3 +92,29 @@ m_to_label = {'ResNet50multitask': 'ResNet50-Multitask',
               'wav2vec': 'Wav2Vec 2.0',
               'sepformer': 'Sepformer',
               'metricGAN': 'MetricGAN'}
+
+######################################################################################
+m_to_invariant_key = {
+        'AST': 'braindnn_ast',
+        'DCASE2020': 'dcase2020',
+        'ResNet50multitask': 'braindnn_resnet50_multitask',
+              'ResNet50audioset': 'ResNet50-Audioset',
+              'ResNet50word': 'ResNet50-Word',
+              'ResNet50speaker': 'ResNet50-Speaker',
+              'ResNet50music': 'ResNet50-Music',
+              'Kell2018multitask': 'Kell2018-Multitask',
+              'Kell2018speaker': 'Kell2018-Speaker',
+              'Kell2018audioset': 'Kell2018-Audioset',
+              'Kell2018word': 'Kell2018-Word',
+              'Kell2018music': 'Kell2018-Music', 
+}
+
+######################################################################################
+downstream_scores = {
+        'esc50-v2.0.0-full': 'test_top1_acc',
+        'fsd50k-v1.0-full': 'test_mAP',
+        'nsynth_pitch-v2.2.3-50h': 'test_pitch_acc',
+        'speech_commands-v0.0.2-full': 'test_top1_acc',
+        'tfds_crema_d-1.0.0-full': 'test_top1_acc',
+        'tfds_gtzan-1.0.0-full': 'test_top1_acc'
+}
