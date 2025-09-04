@@ -36,4 +36,5 @@ def d_prime(y, ypred):
 metric_map = {'top1_acc': accuracy_score,
               'mAP': mAP,
               'd_prime': d_prime,
-              'aucroc': aucroc}
+              'aucroc': aucroc,
+              'pitch_acc': accuracy_score}
