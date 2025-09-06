@@ -80,8 +80,11 @@ class DynamicPCA:
         for i in range(len(x[0])):
             xi = np.stack([xii[i] for xii in x])
             self.pcas[i].fit(xi)
-        num_components_dynamic = [np.argwhere(np.cumsum(m.explained_variance_ratio_)>self.variance_threshold)[0,0] for m in self.pcas]
-        self.num_components = min(max(num_components_dynamic), min(self.layer_dims))
+        if self.variance_threshold >=1.0:
+            self.num_components = min(min(self.layer_dims), len(x))
+        else:
+            num_components_dynamic = [np.argwhere(np.cumsum(m.explained_variance_ratio_)>self.variance_threshold)[0,0] for m in self.pcas]
+            self.num_components = min(min(max(num_components_dynamic), min(self.layer_dims)), len(x))
 
     def fit_transform(self, x):
         self.fit(x)
@@ -162,6 +165,8 @@ class MLP(pl.LightningModule):
         self(batch)
         loss = self.loss(batch['y_hat'], batch['y'])
         self.log('train_loss', loss)
+        for i, lwi in enumerate(self.lw):
+            self.log(f'lw_{i}', torch.abs(lwi)/torch.sum(torch.abs(self.lw)))
         return loss
 
     def test_step(self, batch):

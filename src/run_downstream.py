@@ -15,6 +15,7 @@ from learning import MLP, DynamicPCA
 from data import AudioDataset
 
 from sklearn.model_selection import ParameterGrid
+import shutil
 
 hyp_confs = {
     'hidden_dims': [[1024], [1024,1024]],
@@ -121,7 +122,7 @@ def train_test_model(train_data_files,
         model_dim = model_dims[0]
     else:
         #PCA thing
-        pca_model = DynamicPCA(model_dims, variance_threshold=0.9)
+        pca_model = DynamicPCA(model_dims, variance_threshold=1.0)
         train_embeddings = pca_model.fit_transform(train_embeddings)
         test_embeddings = pca_model.transform(test_embeddings)
         val_embeddings = pca_model.transform(val_embeddings)
@@ -202,7 +203,8 @@ def find_best_hyp(results, score_key='val_top1_acc'):
 
     return best_hyp, results[best_score]
 
-def run_downstream(upstream_model, tasks_dir = '/mnt/data/hear-selected', output_dir='results'):
+def run_downstream(upstream_model, tasks_dir = '/mnt/data/hear-selected', output_dir='results',
+                   remove_activations_after=True, remove_ckpts_after=True):
     model = AudioFeature(upstream_model, device='cuda:0')
     for task_dir in Path(tasks_dir).glob('*'):
         if not Path(output_dir, upstream_model,'downstream',task_dir.parts[-1],'results.pkl').exists():
@@ -255,6 +257,10 @@ def run_downstream(upstream_model, tasks_dir = '/mnt/data/hear-selected', output
             results_path_parts[-2] = 'downstream'
             results_path = Path(*results_path_parts, 'results.pkl')
             joblib.dump(all_results, results_path)
+            if remove_activations_after:
+                shutil.rmtree(outdir)
+            if remove_ckpts_after:
+                shutil.rmtree(Path(output_dir, upstream_model, 'downstream', task_dir.parts[-1], 'ckpt'))
 
 if __name__ == '__main__':
     fire.Fire(run_downstream)
