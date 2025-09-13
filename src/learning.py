@@ -196,17 +196,16 @@ class MLP(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
 
-def nested_xval(x, y, folds, hyper_fn, model_cls, metric_fns, save_search_results=True, save_preds=False):
+def nested_xval(x, y, folds, hyper_fn, model_cls, metric_fns, save_search_results=True, save_preds=False, save_models=True):
     all_preds = np.zeros_like(y)
     fold_results = []
     for fold in np.unique(folds):
         train_mask = (folds != fold)
         test_mask = (folds == fold)
-        
         y_train, y_test = y[train_mask], y[test_mask]
         if isinstance(x, dict):
-            x_train = {k: v[train_mask] for k,v in x.items()}
-            x_test = {k: v[test_mask] for k,v in x.items()}
+            x_train = {k: np.array(v)[train_mask] for k,v in x.items()}
+            x_test = {k: np.array(v)[test_mask] for k,v in x.items()}
         else:
             x_train, x_test = x[train_mask], x[test_mask]
 
@@ -222,6 +221,9 @@ def nested_xval(x, y, folds, hyper_fn, model_cls, metric_fns, save_search_result
     if save_preds:
         results['preds'] = all_preds
         results['y'] = y
+    if save_models:
+        results['model'] = {'coefs': best_model.model.coef_,
+                            'intercept': best_model.model.intercept_}
     return results
 
 def rsa_layer_select(x,y,selection_method='cv', folds=None):

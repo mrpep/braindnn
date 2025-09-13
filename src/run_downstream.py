@@ -13,9 +13,12 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
 from learning import MLP, DynamicPCA
 from data import AudioDataset
+from specs import layer_map
 
 from sklearn.model_selection import ParameterGrid
 import shutil
+
+
 
 hyp_confs = {
     'hidden_dims': [[1024], [1024,1024]],
@@ -38,6 +41,7 @@ def extract_task_embeddings(upstream_model, task_dir, output_dir):
             for fname in tqdm(split.rglob('*.wav')):
                 x, fs = librosa.core.load(fname, sr=upstream_model.sr)
                 feats = upstream_model(x)
+                feats = {k:v for k,v in feats.items() if k in layer_map[upstream_model.model]}
                 embeddings[fname.stem] = feats
                 labels[fname.stem] = label_data[fname.name]
 
@@ -62,7 +66,7 @@ def train_test_model(train_data_files,
                 val_data_files,
                 test_data_files,
                 output_dir, label_type='single', 
-                batch_size=128, 
+                batch_size=1024, 
                 num_workers=4, 
                 patience=20,
                 max_epochs=200,

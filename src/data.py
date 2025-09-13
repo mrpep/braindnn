@@ -5,6 +5,7 @@ import pickle
 import h5py
 from scipy.io import loadmat
 import torch
+import joblib
 
 
 NUM_STIMULI = 165
@@ -45,32 +46,45 @@ def load_fmri(path, dataset='B2021'):
             'stimuli_metadata': pd.DataFrame(stimuli_metadata).set_index('id')}
     
 def load_activations(path, stimuli_metadata, layer_filter=None):
-    h5_path = Path(path, 'natsound_activations.h5')
+    activations = []
     activations_ = {}
-    if h5_path.exists():
-        with h5py.File(h5_path, 'r') as f:
-            if layer_filter is not None:
-                keys = layer_filter
-            else:
-                keys = f.keys()
-            for k in keys:
-                try:
-                    activations_[k] = f[k][:]
-                except:
-                    from IPython import embed; embed()
-    else:
-        activations = []
-        for idx, row in stimuli_metadata.iterrows():
-            filename = row['filename']
-            if not isinstance(filename, str):
-                filename = filename.decode('utf-8')
-            filename = filename.split('.')[0] + '_activations.pkl'
-            with open(Path(path, filename), 'rb') as f:
-                activations.append(pickle.load(f))
-        for k in activations[0].keys():
-            activations_[k] = np.array([a[k] for a in activations])
-        if layer_filter is not None:
-            activations_ = {k:v for k,v in activations_.items() if k in layer_filter}
+    for idx, row in stimuli_metadata.iterrows():
+        filename = row['filename']
+        if not isinstance(filename, str):
+            filename = filename.decode('utf-8')
+        filename = filename.replace('.wav', '.pkl')
+        activations.append(joblib.load(Path(path, filename)))
+    for k in activations[0].keys():
+        activations_[k] = [a[k] for a in activations]
+    if layer_filter is not None:
+        activations_ = {k:v for k,v in activations_.items() if k in layer_filter}
+    return activations_
+    # h5_path = Path(path, 'natsound_activations.h5')
+    # activations_ = {}
+    # if h5_path.exists():
+    #     with h5py.File(h5_path, 'r') as f:
+    #         if layer_filter is not None:
+    #             keys = layer_filter
+    #         else:
+    #             keys = f.keys()
+    #         for k in keys:
+    #             try:
+    #                 activations_[k] = f[k][:]
+    #             except:
+    #                 from IPython import embed; embed()
+    # else:
+    #     activations = []
+    #     for idx, row in stimuli_metadata.iterrows():
+    #         filename = row['filename']
+    #         if not isinstance(filename, str):
+    #             filename = filename.decode('utf-8')
+    #         filename = filename.split('.')[0] + '.pkl'
+    #         with open(Path(path, filename), 'rb') as f:
+    #             activations.append(pickle.load(f))
+    #     for k in activations[0].keys():
+    #         activations_[k] = np.array([a[k] for a in activations])
+    #     if layer_filter is not None:
+    #         activations_ = {k:v for k,v in activations_.items() if k in layer_filter}
 
     #if layer_filter is not None:
     #
