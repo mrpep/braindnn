@@ -74,6 +74,8 @@ def download_data(neural=True, heareval=True):
             dest_path = Path('.', 'data', 'heareval')
             extract_tar(tar_path, dest_path)
             os.remove(str(tar_path.resolve()))
+        for item in Path('.', 'data', 'heareval', 'hear-2021.0.6', 'tasks').iterdir():
+            shutil.move(str(item.resolve()), str(Path('.', 'data', 'heareval', 'tasks').resolve()))
         
     
 if __name__ == '__main__':

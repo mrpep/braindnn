@@ -18,6 +18,8 @@ from specs import layer_map
 from sklearn.model_selection import ParameterGrid
 import shutil
 
+from loguru import logger as loguru_logger
+
 
 
 hyp_confs = {
@@ -28,7 +30,10 @@ hyp_confs = {
 
 def extract_task_embeddings(upstream_model, task_dir, output_dir):
     data_filenames = []
-    for split in Path(task_dir, str(upstream_model.sr)).glob('*'):
+    audio_dir = Path(task_dir, str(upstream_model.sr))
+    if not audio_dir.exists():
+        audio_dir = Path(task_dir, '48000')
+    for split in audio_dir.glob('*'):
         embeddings = {}
         labels = {}
         outdir = Path(output_dir, split.stem + '.pkl')
@@ -38,7 +43,7 @@ def extract_task_embeddings(upstream_model, task_dir, output_dir):
         if not outdir.exists():
             with open(Path(task_dir, split.stem+'.json'), 'r') as f:
                 label_data = json.load(f)
-            for fname in tqdm(split.rglob('*.wav')):
+            for fname in tqdm(split.rglob('*.wav'), desc=split.name):
                 x, fs = librosa.core.load(fname, sr=upstream_model.sr)
                 feats = upstream_model(x)
                 feats = {k:v for k,v in feats.items() if k in layer_map[upstream_model.model]}
@@ -207,11 +212,12 @@ def find_best_hyp(results, score_key='val_top1_acc'):
 
     return best_hyp, results[best_score]
 
-def run_downstream(upstream_model, tasks_dir = '/mnt/data/hear-selected', output_dir='results',
+def run_downstream(upstream_model, tasks_dir = 'data/heareval/tasks', output_dir='results',
                    remove_activations_after=True, remove_ckpts_after=True):
     model = AudioFeature(upstream_model, device='cuda:0')
     for task_dir in Path(tasks_dir).glob('*'):
         if not Path(output_dir, upstream_model,'downstream',task_dir.parts[-1],'results.pkl').exists():
+            loguru_logger.info('Evaluating {}'.format(task_dir.name))
             #Extract activations / labels
             outdir = Path(output_dir, upstream_model, 'activations', task_dir.parts[-1])
             outdir.mkdir(parents=True, exist_ok=True)
@@ -265,6 +271,7 @@ def run_downstream(upstream_model, tasks_dir = '/mnt/data/hear-selected', output
                 shutil.rmtree(outdir)
             if remove_ckpts_after:
                 shutil.rmtree(Path(output_dir, upstream_model, 'downstream', task_dir.parts[-1], 'ckpt'))
-
+        else:
+            loguru_logger.info('Skipping {} as results already exists.'.format(task_dir.name))
 if __name__ == '__main__':
     fire.Fire(run_downstream)
