@@ -6,6 +6,8 @@ from sklearn.decomposition import PCA
 import pickle
 from hyper import search_hyperparameters_cv
 from scipy import stats
+from loguru import logger
+from tqdm import tqdm
 
 import pandas as pd
 
@@ -74,14 +76,21 @@ class DynamicPCA:
     def __init__(self, layer_dims, variance_threshold=0.9):
         self.layer_dims = layer_dims
         self.variance_threshold = variance_threshold
-        self.pcas = [PCA() for xi in self.layer_dims]
+        #self.pcas = [PCA() for xi in self.layer_dims]
+        self.pcas = None
 
     def fit(self, x):
-        for i in range(len(x[0])):
+        N = len(x)
+        min_d = min(self.layer_dims)
+        num_components = min(N, min_d)
+        logger.info(f'Fitting {num_components} PCA components for {N} data points')
+        self.pcas = [PCA(n_components=num_components) for xi in self.layer_dims]
+
+        for i in tqdm(range(len(x[0]))):
             xi = np.stack([xii[i] for xii in x])
             self.pcas[i].fit(xi)
         if self.variance_threshold >=1.0:
-            self.num_components = min(min(self.layer_dims), len(x))
+            self.num_components = num_components
         else:
             num_components_dynamic = [np.argwhere(np.cumsum(m.explained_variance_ratio_)>self.variance_threshold)[0,0] for m in self.pcas]
             self.num_components = min(min(max(num_components_dynamic), min(self.layer_dims)), len(x))
