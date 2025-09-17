@@ -48,7 +48,7 @@ layer_map = {'spectemp': ['avgpool'],
 
 kell_layers = ['relu0', 'maxpool0', 'relu1', 'maxpool1', 'relu2', 'relu3', 'relu4', 'avgpool', 'relufc']
 resnet_layers = ['conv1_relu1', 'maxpool1', 'layer1', 'layer2', 'layer3', 'layer4', 'avgpool']
-kell_suffixes = ['audioset', 'multitask', 'speaker', 'word', 'music']
+kell_suffixes = ['audioset', 'word_speaker_audioset', 'speaker', 'word', 'music']
 kell_map = {f'braindnn_kell2018_{k}': [f'braindnn_kell2018_{k}_{l}' for l in kell_layers] for k in kell_suffixes}
 resnet_map = {f'braindnn_resnet50_{k}': [f'braindnn_resnet50_{k}_{l}' for l in resnet_layers] for k in kell_suffixes}
 music_layers = ['relu1', 'maxpool1', 'layer1', 'layer2', 'layer3', 'layer4', 'avgpool']
@@ -77,6 +77,17 @@ layer_map['dasheng_base_ft-as'] = ['dasheng_base_ft-as_{}'.format(i) for i in ra
 layer_map['dasheng_06B'] = ['dasheng_06B_{}'.format(i) for i in [0,3,6,9,12,15,18,21,24,27,30,31]]
 layer_map['dasheng_12B'] = ['dasheng_12B_{}'.format(i) for i in [0,4,8,12,16,20,24,28,32,36,39]]
 
+layer_map['braindnn_ast'] = ['Conv2d(1, 768, kernel_size=(16, 16), stride=(10, 10))--0'] + \
+                            [f'Linear(in_features=3072, out_features=768, bias=True)--{i}' for i in range(12)] + ['Final']
+layer_map['braindnn_vggish'] = [f'ReLU(inplace=True)--{i}' for i in range(9)] + \
+                               [f'MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)--{i}' for i in range(4)]
+layer_map['braindnn_dcase2020'] = ['GRU(64, 256, batch_first=True, bidirectional=True)--0--hidden', 
+                                   'GRU(512, 256, batch_first=True, bidirectional=True)--0--hidden', 
+                                   'GRU(512, 256, batch_first=True, bidirectional=True)--1--hidden', 
+                                   'GRU(512, 256, batch_first=True)--0--hidden', 
+                                   'Linear(in_features=256, out_features=4367, bias=True)--0']
+layer_map['braindnn_sepformer'] = ['Conv1d(1, 256, kernel_size=(16,), stride=(8,), bias=False)--0'] + \
+                                  [f'Linear(in_features=1024, out_features=256, bias=True)--{i}' for i in range(32)]
 #############################################################################################################
 
 m_to_label = {'ResNet50multitask': 'ResNet50-Multitask',
