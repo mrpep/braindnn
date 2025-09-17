@@ -88,6 +88,14 @@ layer_map['braindnn_dcase2020'] = ['GRU(64, 256, batch_first=True, bidirectional
                                    'Linear(in_features=256, out_features=4367, bias=True)--0']
 layer_map['braindnn_sepformer'] = ['Conv1d(1, 256, kernel_size=(16,), stride=(8,), bias=False)--0'] + \
                                   [f'Linear(in_features=1024, out_features=256, bias=True)--{i}' for i in range(32)]
+layer_map['braindnn_metricgan'] = ['LSTM(257, 200, num_layers=2, batch_first=True, bidirectional=True)--l1--cell',
+                                   'LSTM(257, 200, num_layers=2, batch_first=True, bidirectional=True)--l2--cell',
+                                   'Linear(in_features=400, out_features=300, bias=True)--0',
+                                   'Linear(in_features=300, out_features=257, bias=True)--0']
+layer_map['braindnn_wav2vec2'] = ['Embedding', 'Encoder_1', 'Encoder_2', 'Encoder_3', 'Encoder_4', 'Encoder_5', 'Encoder_6',
+                                  'Encoder_7', 'Encoder_8', 'Encoder_9', 'Encoder_10', 'Encoder_11', 'Encoder_12']
+layer_map['braindnn_s2t'] = ['Embedding', 'Encoder_1', 'Encoder_2', 'Encoder_3', 'Encoder_4', 'Encoder_5', 'Encoder_6',
+                                'Encoder_7', 'Encoder_8', 'Encoder_9', 'Encoder_10', 'Encoder_11', 'Encoder_12']
 #############################################################################################################
 
 m_to_label = {'ResNet50multitask': 'ResNet50-Multitask',
