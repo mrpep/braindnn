@@ -96,6 +96,7 @@ layer_map['braindnn_wav2vec2'] = ['Embedding', 'Encoder_1', 'Encoder_2', 'Encode
                                   'Encoder_7', 'Encoder_8', 'Encoder_9', 'Encoder_10', 'Encoder_11', 'Encoder_12']
 layer_map['braindnn_s2t'] = ['Embedding', 'Encoder_1', 'Encoder_2', 'Encoder_3', 'Encoder_4', 'Encoder_5', 'Encoder_6',
                                 'Encoder_7', 'Encoder_8', 'Encoder_9', 'Encoder_10', 'Encoder_11', 'Encoder_12']
+layer_map['braindnn_zerospeech'] = [f'ReLU(inplace=True)--{i}' for i in range(5)]
 #############################################################################################################
 
 m_to_label = {'ResNet50multitask': 'ResNet50-Multitask',
