@@ -98,6 +98,13 @@ layer_map['braindnn_s2t'] = ['Embedding', 'Encoder_1', 'Encoder_2', 'Encoder_3',
                                 'Encoder_7', 'Encoder_8', 'Encoder_9', 'Encoder_10', 'Encoder_11', 'Encoder_12']
 layer_map['braindnn_zerospeech'] = [f'ReLU(inplace=True)--{i}' for i in range(5)]
 layer_map['braindnn_spectemp_filters'] = ['braindnn_spectemp_filters_avgpool']
+layer_map['braindnn_deepspeech'] = ['Hardtanh(min_val=0, max_val=20)--0',
+                                    'Hardtanh(min_val=0, max_val=20)--1',
+                                    'LSTM(1312, 1024, bidirectional=True)--0--cell',
+                                    'LSTM(1024, 1024, bidirectional=True)--0--cell',
+                                    'LSTM(1024, 1024, bidirectional=True)--1--cell',
+                                    'LSTM(1024, 1024, bidirectional=True)--2--cell',
+                                    'LSTM(1024, 1024, bidirectional=True)--3--cell']
 #############################################################################################################
 
 m_to_label = {'ResNet50multitask': 'ResNet50-Multitask',
