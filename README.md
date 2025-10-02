@@ -14,3 +14,15 @@ pip install -e .
 ```bash
 python scripts/download_data.py
 ```
+
+5) This command will run the RSA, voxel regression, component regression, and downstream performance measurements by default:
+
+```bash
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python src/run_full_analysis.py --model [MODEL] --output_dir [RESULTS_FOLDER]
+```
+
+The env variable is to avoid some potential OOM errors when extracting activations during downstream training.
+
+Some analysis can be deactivated with flags --downstream=False, --rsa=False or --regression=False
+
+Models used in the paper are listed in the ALL_MODELS variable inside src/specs.py
