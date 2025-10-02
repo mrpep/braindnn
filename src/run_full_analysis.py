@@ -6,7 +6,7 @@ from run_downstream import run_downstream
 import fire
 from loguru import logger
 
-def run_all(model, output_dir, rsa=True, regression=True, downstream=True):
+def run_all(model, output_dir, rsa=True, regression=True, downstream=True, rsa_method='rdm_xval'):
     print(regression)
     logger.info(f'Full analysis for {model}. Results will be stored in {output_dir}')
     logger.info('Extracting activations for stimuli')
@@ -14,7 +14,7 @@ def run_all(model, output_dir, rsa=True, regression=True, downstream=True):
     if rsa:
         for dataset in ['B2021', 'NH2015']:
             logger.info(f'Running RSA with {dataset}')
-            run_rsa(model, dataset, output_dir)
+            run_rsa(model, dataset, output_dir, method=rsa_method)
     if regression:
         for dataset in ['NH2015', 'NH2015comp']:
             logger.info(f'Learning regressors for {dataset}')

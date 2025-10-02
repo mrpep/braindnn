@@ -107,16 +107,14 @@ layer_map['braindnn_deepspeech'] = ['Hardtanh(min_val=0, max_val=20)--0',
                                     'LSTM(1024, 1024, bidirectional=True)--3--cell']
 #############################################################################################################
 
-m_to_label = {'ResNet50multitask': 'ResNet50-Multitask',
-              'ResNet50audioset': 'ResNet50-Audioset',
-              'ResNet50word': 'ResNet50-Word',
-              'ResNet50speaker': 'ResNet50-Speaker',
-              'ResNet50music': 'ResNet50-Music',
-              'Kell2018multitask': 'Kell2018-Multitask',
-              'Kell2018speaker': 'Kell2018-Speaker',
-              'Kell2018audioset': 'Kell2018-Audioset',
-              'Kell2018word': 'Kell2018-Word',
-              'Kell2018music': 'Kell2018-Music',           
+m_to_label = {'braindnn_resnet50_word_speaker_audioset': 'CochResNet50-Multitask',
+              'braindnn_resnet50_audioset': 'CochResNet50-Audioset',
+              'braindnn_resnet50_word': 'CochResNet50-Word',
+              'braindnn_resnet50_speaker': 'CochResNet50-Speaker',
+              'braindnn_kell2018_word_speaker_audioset': 'CochCNN9-Multitask',
+              'braindnn_kell2018_audioset': 'CochCNN9-Audioset',
+              'braindnn_kell2018_word': 'CochCNN9-Word',
+              'braindnn_kell2018_speaker': 'CochCNN9-Speaker',          
               'BEATs_iter3': 'BEATs (Iter 3)',
               'BEATs_iter3_finetuned_on_AS2M_cpt1': 'BEATs FT',
               'BEATs_iter2': 'BEATs (Iter 2)',
@@ -135,9 +133,16 @@ m_to_label = {'ResNet50multitask': 'ResNet50-Multitask',
               'dasheng_06B': 'Dasheng (0.6B)',
               'dasheng_12B': 'Dasheng (1.2B)',
               'dasheng_base_ft-as': 'Dasheng FT',
-              'wav2vec': 'Wav2Vec 2.0',
-              'sepformer': 'Sepformer',
-              'metricGAN': 'MetricGAN'}
+              'braindnn_ast': 'AST',
+              'braindnn_vggish': 'VGGish',
+              'braindnn_wav2vec2': 'Wav2Vec 2.0',
+              'braindnn_sepformer': 'Sepformer',
+              'braindnn_metricgan': 'MetricGAN',
+              'braindnn_dcase2020': 'DCASE2020',
+              'braindnn_zerospeech': 'Zerospeech',
+              'braindnn_deepspeech': 'Deepspeech',
+              'braindnn_s2t': 'S2T',
+              'topline': 'Topline'}
 
 ######################################################################################
 m_to_invariant_key = {
@@ -165,3 +170,53 @@ downstream_scores = {
         'tfds_crema_d-1.0.0-full': 'test_top1_acc',
         'tfds_gtzan-1.0.0-full': 'test_top1_acc'
 }
+
+def assign_color(x, segment_cochdnn=True):
+        if '-ec-' in x:
+                return '#5e02c7'
+        elif 'braindnn' in x:
+                if ('kell2018' in x) and segment_cochdnn:
+                        return '#f542f5'
+                elif ('resnet50' in x) and segment_cochdnn:
+                        return '#f542a7'
+                elif 'spectemp' in x:
+                        return '#000000'
+                else:
+                        return '#e3a6ab'         
+        elif 'dasheng' in x:
+                return '#42f584'
+        elif 'BEATs' in x:
+                return '#f5b042'
+        else:
+                return '#4287f5'
+        
+def assign_color_by_domain(x):
+        if ('fma' in x) or ('music' in x):
+                return '#5e02c7'
+        elif x in ['mel256-ec-base-ll', 'braindnn_sepformer', 'braindnn_metricgan', 'braindnn_wav2vec2',
+                   'braindnn_deepspeech', 'braindnn_zerospeech', 'braindnn_s2t']:
+                return '#f542f5'
+        elif ('word' in x) or ('speaker' in x):
+                return '#f542f5'
+        else:
+                return '#4287f5'
+
+legend_names = {'EnCodecMAE': '#5e02c7',
+                'CochCNN9': '#f542f5',
+                'CochResNet50': '#f542a7',
+                'Dasheng': '#42f584',
+                'BEATs': '#f5b042',
+                'Others': '#e3a6ab'}
+
+model_to_color = {k: assign_color(k) for k in layer_map.keys()}
+domain_to_color = {k: assign_color_by_domain(k) for k in layer_map.keys()}
+unique_labels = {'braindnn_ast': 'AST',
+                 'braindnn_vggish': 'VGGish',
+                 'braindnn_dcase2020': 'DCASE2020',
+                 'braindnn_sepformer': 'SepFormer',
+                 'braindnn_metricgan': 'MetricGAN',
+                 'braindnn_wav2vec2': 'Wav2Vec2',
+                 'braindnn_s2t': 'S2T',
+                 'braindnn_zerospeech': 'ZeroSpeech',
+                 'braindnn_deepspeech': 'DeepSpeech',
+                 'braindnn_spectemp_filters': 'SpectroTemporal'}

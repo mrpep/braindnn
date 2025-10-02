@@ -21,10 +21,11 @@ import joblib.parallel
 from pathlib import Path
 
 from specs import layer_map, ALL_MODELS
+from learning import RSA
 
 import fire
 
-def run_rsa(model='all', dataset='NH2015', output_dir='results'):
+def run_rsa(model='all', dataset='NH2015', output_dir='results', method='rdm_xval'):
     fold_file=Path(__file__, '../../lists/stratified-fold-assignment.pkl').resolve()
     fmri_dir=Path(__file__, '../../data/neural').resolve()
 
@@ -44,17 +45,30 @@ def run_rsa(model='all', dataset='NH2015', output_dir='results'):
                 activation_dir = Path(output_dir, m, 'activations', 'natural_sounds')
                 layer_filter = layer_map.get(m)
                 activations = load_activations(activation_dir, fmri_data['stimuli_metadata'], layer_filter)
-                subjects_r = []
-                test_rdms = []
-                layer_selections = []
-                for s in np.unique(subj_ids):
-                    voxel_subset = voxel_feats[:, subj_ids==s]
-                    is_nan = np.isnan(voxel_subset).sum(axis=0) > 0
-                    voxel_subset = voxel_subset[:, ~is_nan]
-                    subject_r, test_rdm, layer_idxs = rsa_layer_select(voxel_subset, activations, folds=folds)
-                    subjects_r.append(subject_r)
-                    test_rdms.append(test_rdm)
-                    layer_selections.append(layer_idxs)
+                if method == 'rdm_xval':
+                    subjects_r = []
+                    test_rdms = []
+                    layer_selections = []
+                    for s in np.unique(subj_ids):
+                        voxel_subset = voxel_feats[:, subj_ids==s]
+                        is_nan = np.isnan(voxel_subset).sum(axis=0) > 0
+                        voxel_subset = voxel_subset[:, ~is_nan]
+                        subject_r, test_rdm, layer_idxs = rsa_layer_select(voxel_subset, activations, folds=folds)
+                        subjects_r.append(subject_r)
+                        test_rdms.append(test_rdm)
+                        layer_selections.append(layer_idxs)
+                elif method == 'rdm_layerwise':
+                    subjects_r = []
+                    for k,v in activations.items():
+                        for s in np.unique(subj_ids):
+                            voxel_subset = voxel_feats[:, subj_ids==s]
+                            is_nan = np.isnan(voxel_subset).sum(axis=0) > 0
+                            rsa_model = RSA()
+                            rsa_model.fit(voxel_subset, v)
+                            subjects_r.append({'subj_id': s, 'subj_r': rsa_model.r, 
+                                                'layer': k})
+                    layer_selections = None
+                    test_rdms = None
             else:
                 voxel_metadata = fmri_data['voxel_metadata'].reset_index()
                 subject_rdms = []
@@ -81,8 +95,8 @@ def run_rsa(model='all', dataset='NH2015', output_dir='results'):
             outdir = Path(output_dir, m)
             Path(outdir).mkdir(parents=True, exist_ok=True)
             rsa_results = {'subject_test_rdms': test_rdms,
-                        'subjects_r': subjects_r,
-                        'subjects_layer_selection': layer_selections}
+                            'subjects_r': subjects_r,
+                            'subjects_layer_selection': layer_selections}
             joblib.dump(rsa_results, Path(outdir,f'RSA_{dataset}.pkl'))
 
 if __name__ == '__main__':

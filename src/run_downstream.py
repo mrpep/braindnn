@@ -32,7 +32,8 @@ def extract_task_embeddings(upstream_model, task_dir, output_dir):
     data_filenames = []
     audio_dir = Path(task_dir, str(upstream_model.sr))
     if not audio_dir.exists():
-        audio_dir = Path(task_dir, '48000')
+        #audio_dir = Path(task_dir, '48000')
+        audio_dir = Path(task_dir, '44100')
     for split in audio_dir.glob('*'):
         embeddings = {}
         labels = {}
@@ -43,7 +44,7 @@ def extract_task_embeddings(upstream_model, task_dir, output_dir):
         if not outdir.exists():
             with open(Path(task_dir, split.stem+'.json'), 'r') as f:
                 label_data = json.load(f)
-            for fname in tqdm(split.rglob('*.wav'), desc=split.name):
+            for i,fname in enumerate(tqdm(split.rglob('*.wav'), desc=split.name)):
                 x, fs = librosa.core.load(fname, sr=upstream_model.sr)
                 feats = upstream_model(x)
                 feats = {k:v for k,v in feats.items() if k in layer_map[upstream_model.model]}
@@ -79,6 +80,11 @@ def train_test_model(train_data_files,
                 fold=None,
                 hyp_conf=None):
     #Load Data
+    
+    downstream_folder = list(Path(output_dir).parts)
+    downstream_folder[-2] = 'downstream'
+    downstream_folder = Path(*downstream_folder)
+    
     train_pkls = [joblib.load(f) for f in train_data_files]
     val_pkls = [joblib.load(f) for f in val_data_files]
     test_pkls = [joblib.load(f) for f in test_data_files]
@@ -131,8 +137,22 @@ def train_test_model(train_data_files,
         model_dim = model_dims[0]
     else:
         #PCA thing
-        pca_model = DynamicPCA(model_dims, variance_threshold=1.0)
-        train_embeddings = pca_model.fit_transform(train_embeddings)
+        is_fold = 'fold' in fold
+        if not is_fold:
+            pca_filename = 'train_pca.pkl'
+        else:
+            pca_filename = fold.split('_')[0] + '.pkl'
+        pca_path = Path(downstream_folder, pca_filename)
+        if pca_path.exists():
+            loguru_logger.info('Caching PCA model from {}'.format(str(pca_path.resolve())))
+            pca_model = joblib.load(pca_path)
+            train_embeddings = pca_model.transform(train_embeddings)
+        else:
+            pca_path.parent.mkdir(parents=True, exist_ok=True)
+            pca_model = DynamicPCA(model_dims, variance_threshold=1.0)
+            train_embeddings = pca_model.fit_transform(train_embeddings)
+            joblib.dump(pca_model, pca_path)
+            
         test_embeddings = pca_model.transform(test_embeddings)
         val_embeddings = pca_model.transform(val_embeddings)
         model_dim = pca_model.num_components
@@ -162,9 +182,6 @@ def train_test_model(train_data_files,
     val_dl = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
     
     #Instantiate trainer
-    downstream_folder = list(Path(output_dir).parts)
-    downstream_folder[-2] = 'downstream'
-    downstream_folder = Path(*downstream_folder)
     log_folder = Path(downstream_folder, 'logs')
     ckpt_folder = Path(downstream_folder, 'ckpt')
     if fold is not None:
@@ -212,7 +229,7 @@ def find_best_hyp(results, score_key='val_top1_acc'):
 
     return best_hyp, results[best_score]
 
-def run_downstream(upstream_model, tasks_dir = 'data/heareval/tasks', output_dir='results',
+def run_downstream(upstream_model, tasks_dir = '/mnt/data/hear-selected', output_dir='results',
                    remove_activations_after=True, remove_ckpts_after=True):
     model = AudioFeature(upstream_model, device='cuda:0')
     for task_dir in Path(tasks_dir).glob('*'):

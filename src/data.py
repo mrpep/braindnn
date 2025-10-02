@@ -98,7 +98,7 @@ class AudioDataset(torch.utils.data.Dataset):
         self.labels = labels
 
     def __getitem__(self, idx):
-        return {'embeddings': self.embeddings[idx],
+        return {'embeddings': self.embeddings[idx].astype(np.float16),
                 'y': self.labels[idx]}
 
     def __len__(self):
