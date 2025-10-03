@@ -9,9 +9,12 @@ from loguru import logger
 
 def extract_activations(model, output_dir='results'):
     stimuli_dir = Path(__file__, '../../data/stimuli').resolve()
-    if model in m_to_invariant_key:
-        model = m_to_invariant_key[model]
-    m = AudioFeature(model, device='cuda:0')
+    if isinstance(model, str):
+        if model in m_to_invariant_key:
+            model = m_to_invariant_key[model]
+        m = AudioFeature(model, device='cuda:0')
+    else:
+        m = model
     
     layers = layer_map[model]
     logger.info('Extracting activations from {} layers.'.format(len(layers)))
@@ -23,6 +26,7 @@ def extract_activations(model, output_dir='results'):
             x, fs = librosa.core.load(fname, sr=m.sr)
             feats = m(x)
             feats = {k: v for k,v in feats.items() if k in layers}
+            
             assert len(feats) == len(layers)
             joblib.dump(feats, out_path)
 

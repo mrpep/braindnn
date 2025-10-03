@@ -25,6 +25,7 @@ def load_fmri(path, dataset='B2021'):
                             'embedded-wav-start-idx': 0,
                             'fmri_stim_idx': np.arange(NUM_STIMULI),
                             'id': np.arange(NUM_STIMULI)}
+        roi_metadata = voxel_metadata
     elif dataset == 'NH2015comp':
         data = loadmat(Path(fmri_path, 'components.mat'))
         response = data['R']
@@ -35,15 +36,18 @@ def load_fmri(path, dataset='B2021'):
         voxel_data = response[stim_reorder]
         voxel_metadata = pd.read_pickle(Path(fmri_path,'df_roi_meta.pkl'))
         stimuli_metadata = stim_data
+        roi_metadata = pd.read_pickle(Path(fmri_path, 'df_roi_meta.pkl'))
     elif dataset == 'NH2015':
         voxel_data = np.load(Path(fmri_path, 'voxel_features_array.npy'))
         voxel_metadata = np.load(Path(fmri_path, 'voxel_features_meta.npy'))
         stimuli_metadata = np.load(Path(fmri_path, 'neural_stim_meta.npy'))
+        roi_metadata = pd.read_pickle(Path(fmri_path, 'df_roi_meta.pkl'))
     else:
         raise Exception(f'Unknown dataset name: {dataset}')
     return {'voxel_features': voxel_data,
             'voxel_metadata': pd.DataFrame(voxel_metadata),
-            'stimuli_metadata': pd.DataFrame(stimuli_metadata).set_index('id')}
+            'stimuli_metadata': pd.DataFrame(stimuli_metadata).set_index('id'),
+            'roi_metadata': roi_metadata}
     
 def load_activations(path, stimuli_metadata, layer_filter=None):
     activations = []

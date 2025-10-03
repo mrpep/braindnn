@@ -363,3 +363,21 @@ def layerwise_rsa(folder, model):
     out['model'] = model
     return out
 
+def plot_components(df):
+    cols_comp = [f'REG_NH2015comp_{i}' for i in range(6)]
+    comp_data = df.set_index('model')
+    comp_data = comp_data[cols_comp]
+    comp_data = comp_data.loc[comp_data.index.map(lambda x: x!='topline')]
+    component_names = ['LF', 'HF', 'Broadband', 'Pitch', 'Speech', 'Music']
+    fig, ax = plt.subplots(figsize=(13,13), nrows=2, ncols=3)
+    for i,c in enumerate(cols_comp):
+        comp_i = comp_data[c].sort_values(ascending=True)
+        spec = comp_i.loc['braindnn_spectemp_filters']
+        comp_i = comp_i.drop(index='braindnn_spectemp_filters')
+        ax[i//3,i%3].barh(y=comp_i.index.map(lambda x: m_to_label[x]), 
+                          width=comp_i.values,
+                          color=comp_i.index.map(lambda x: assign_color(x, segment_cochdnn=False)))
+        ax[i//3,i%3].axvline(spec, c='gray')
+        ax[i//3,i%3].set_title(component_names[i])
+        ax[i//3,i%3].set_xlabel(r'$R^2$')
+    plt.tight_layout()

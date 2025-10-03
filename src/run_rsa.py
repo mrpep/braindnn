@@ -25,7 +25,7 @@ from learning import RSA
 
 import fire
 
-def run_rsa(model='all', dataset='NH2015', output_dir='results', method='rdm_xval'):
+def run_rsa(model='all', dataset='NH2015', output_dir='results', method='rdm_xval', roi='all'):
     fold_file=Path(__file__, '../../lists/stratified-fold-assignment.pkl').resolve()
     fmri_dir=Path(__file__, '../../data/neural').resolve()
 
@@ -39,8 +39,17 @@ def run_rsa(model='all', dataset='NH2015', output_dir='results', method='rdm_xva
     folds = joblib.load(fold_file)
     voxel_feats = np.mean(fmri_data['voxel_features'], axis=-1)
     subj_ids = fmri_data['voxel_metadata']['subj_idx'].values
+    roi_metadata = fmri_data['roi_metadata'].set_index('voxel_id')
+    rois = [roi_metadata.loc[vid]['roi_label_general'] if vid in roi_metadata.index else None for vid in fmri_data['voxel_metadata']['voxel_id'].values]
+    
+    if roi == 'all':
+        roi_suffix = ''
+    else:
+        roi_suffix = roi
+    
+    
     for m in models:
-        if not Path(output_dir,m,f'RSA_{dataset}.pkl').exists():
+        if not Path(output_dir,m,f'RSA_{dataset}{roi_suffix}.pkl').exists():
             if m!='topline':
                 activation_dir = Path(output_dir, m, 'activations', 'natural_sounds')
                 layer_filter = layer_map.get(m)
@@ -50,7 +59,11 @@ def run_rsa(model='all', dataset='NH2015', output_dir='results', method='rdm_xva
                     test_rdms = []
                     layer_selections = []
                     for s in np.unique(subj_ids):
-                        voxel_subset = voxel_feats[:, subj_ids==s]
+                        if roi != 'all':
+                            mask = np.logical_and(subj_ids == s,np.array(rois)==roi)
+                        else:
+                            mask = subj_ids==s
+                        voxel_subset = voxel_feats[:, mask]
                         is_nan = np.isnan(voxel_subset).sum(axis=0) > 0
                         voxel_subset = voxel_subset[:, ~is_nan]
                         subject_r, test_rdm, layer_idxs = rsa_layer_select(voxel_subset, activations, folds=folds)
@@ -61,7 +74,11 @@ def run_rsa(model='all', dataset='NH2015', output_dir='results', method='rdm_xva
                     subjects_r = []
                     for k,v in activations.items():
                         for s in np.unique(subj_ids):
-                            voxel_subset = voxel_feats[:, subj_ids==s]
+                            if roi != 'all':
+                                mask = np.logical_and(subj_ids == s,np.array(rois)==roi)
+                            else:
+                                mask = subj_ids==s
+                            voxel_subset = voxel_feats[:, mask]
                             is_nan = np.isnan(voxel_subset).sum(axis=0) > 0
                             rsa_model = RSA()
                             rsa_model.fit(voxel_subset, v)
@@ -97,7 +114,7 @@ def run_rsa(model='all', dataset='NH2015', output_dir='results', method='rdm_xva
             rsa_results = {'subject_test_rdms': test_rdms,
                             'subjects_r': subjects_r,
                             'subjects_layer_selection': layer_selections}
-            joblib.dump(rsa_results, Path(outdir,f'RSA_{dataset}.pkl'))
+            joblib.dump(rsa_results, Path(outdir,f'RSA_{dataset}{roi_suffix}.pkl'))
 
 if __name__ == '__main__':
     fire.Fire(run_rsa)
