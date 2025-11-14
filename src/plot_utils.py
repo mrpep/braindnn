@@ -58,6 +58,7 @@ def load_results(results_path):
         b2021_rsa = get_rsa(model_path, 'B2021')
         nh2015_reg = get_regression(model_path, 'NH2015')
         nh2015c_reg = get_regression(model_path, 'NH2015comp')
+        b2021_reg = get_regression(model_path, 'B2021')
         downstream_perf = gather_downstream(Path(model_path, 'downstream'))
         model_data = {'model': model}
         if nh2015_rsa is not None:
@@ -68,22 +69,13 @@ def load_results(results_path):
             model_data.update(nh2015c_reg)
         if b2021_rsa is not None:
             model_data.update(b2021_rsa)
+        if b2021_reg is not None:
+            model_data.update(b2021_reg)
         if downstream_perf is not None:
             model_data.update(downstream_perf)
         all_data.append(model_data)
         
     results_df = pd.DataFrame(all_data)
-    voxel_data = pd.read_pickle('../data/neural/NH2015/df_roi_meta.pkl')
-
-    reg_cols = [c for c in results_df.columns if c.startswith('REG_NH2015')]
-    per_subj_cols = {}
-    for s in voxel_data['subj_idx'].unique():
-        s_df = voxel_data.loc[voxel_data['subj_idx']==s]
-        s_cols = np.array(reg_cols)[s_df.index]
-        results_df[f'REG_NH2015_SUBJ_{s}'] = results_df.apply(lambda row: np.median(row[s_cols]), axis=1)
-    subj_cols = [c for c in results_df.columns if c.startswith('REG_NH2015_SUBJ')]
-
-    results_df['REG_NH2015_mean'] = results_df.apply(lambda row: np.nanmean(row[subj_cols]), axis=1)
     
     def get_se(row):
         n_subjects = (~row[subj_cols].isna()).sum()
@@ -91,8 +83,18 @@ def load_results(results_path):
             return 0
         else:
             return np.nanstd(row[subj_cols]) / (np.sqrt(n_subjects-1))
-
-    results_df['REG_NH2015_se'] = results_df.apply(get_se, axis=1)
+    
+    for d in ['NH2015', 'B2021']:
+        voxel_data = pd.read_pickle(f'../data/neural/{d}/df_roi_meta.pkl')
+        reg_cols = [c for c in results_df.columns if c.startswith(f'REG_{d}')]
+        per_subj_cols = {}
+        for s in voxel_data['subj_idx'].unique():
+            s_df = voxel_data.loc[voxel_data['subj_idx']==s]
+            s_cols = np.array(reg_cols)[s_df.index]
+            results_df[f'REG_{d}_SUBJ_{s}'] = results_df.apply(lambda row: np.median(row[s_cols]), axis=1)
+        subj_cols = [c for c in results_df.columns if c.startswith(f'REG_{d}_SUBJ')]
+        results_df[f'REG_{d}_mean'] = results_df.apply(lambda row: np.nanmean(row[subj_cols]), axis=1)
+        results_df[f'REG_{d}_se'] = results_df.apply(get_se, axis=1)
 
     downstream_cols = [c for c in results_df.columns if c.startswith('DOWNSTREAM')]
     for c in downstream_cols:
