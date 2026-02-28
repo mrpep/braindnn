@@ -107,32 +107,32 @@ layer_map['braindnn_deepspeech'] = ['Hardtanh(min_val=0, max_val=20)--0',
                                     'LSTM(1024, 1024, bidirectional=True)--3--cell']
 #############################################################################################################
 
-m_to_label = {'braindnn_resnet50_word_speaker_audioset': 'CochResNet50-Multitask',
-              'braindnn_resnet50_audioset': 'CochResNet50-Audioset',
-              'braindnn_resnet50_word': 'CochResNet50-Word',
-              'braindnn_resnet50_speaker': 'CochResNet50-Speaker',
-              'braindnn_kell2018_word_speaker_audioset': 'CochCNN9-Multitask',
-              'braindnn_kell2018_audioset': 'CochCNN9-Audioset',
-              'braindnn_kell2018_word': 'CochCNN9-Word',
-              'braindnn_kell2018_speaker': 'CochCNN9-Speaker',          
-              'BEATs_iter3': 'BEATs (Iter 3)',
-              'BEATs_iter3_finetuned_on_AS2M_cpt1': 'BEATs FT',
-              'BEATs_iter2': 'BEATs (Iter 2)',
-              'BEATs_iter1': 'BEATs (Iter 1)',
-              'spec-ec-base': 'Spec→EC',
-              'ec-ec-base': 'EC→EC',
-              'mel256-ec-base': 'Mel256→EC',
-              'mel256-ec-small': 'Mel256→EC (Small)',
-              'mel256-ec-base_st-nopn': 'Mel256→EC (ST)',
-              'mel256-ec-base-fma': 'Mel256→EC (FMA)',
-              'mel256-ec-base-ll': 'Mel256→EC (LL)',
-              'mel256-ec-base-as': 'Mel256→EC (AS)',
-              'mel256-ec-large': 'Mel256→EC (Large)',
-              'mel256-ec-large_st-nopn': 'Mel256→EC (Large + ST)',
-              'dasheng_base': 'Dasheng (Base)',
-              'dasheng_06B': 'Dasheng (0.6B)',
-              'dasheng_12B': 'Dasheng (1.2B)',
-              'dasheng_base_ft-as': 'Dasheng FT',
+m_to_label = {'braindnn_resnet50_word_speaker_audioset': 'CRN50 (MT)',
+              'braindnn_resnet50_audioset': 'CRN50 (AS)',
+              'braindnn_resnet50_word': 'CRN50 (Word)',
+              'braindnn_resnet50_speaker': 'CRN50 (Spk)',
+              'braindnn_kell2018_word_speaker_audioset': 'CNN9 (MT)',
+              'braindnn_kell2018_audioset': 'CNN9 (AS)',
+              'braindnn_kell2018_word': 'CNN9 (Word)',
+              'braindnn_kell2018_speaker': 'CNN9 (Spk)',          
+              'BEATs_iter3': 'BEATs (It 3)',
+              'BEATs_iter3_finetuned_on_AS2M_cpt1': 'BEATs (FT)',
+              'BEATs_iter2': 'BEATs (It 2)',
+              'BEATs_iter1': 'BEATs (B)',
+              'spec-ec-base': 'ECMAE (Spec)',
+              'ec-ec-base': 'ECMAE (EC)',
+              'mel256-ec-base': 'ECMAE (B)',
+              'mel256-ec-small': 'ECMAE (S)',
+              'mel256-ec-base_st-nopn': 'ECMAE (It 2)',
+              'mel256-ec-base-fma': 'ECMAE (FMA)',
+              'mel256-ec-base-ll': 'ECMAE (LL)',
+              'mel256-ec-base-as': 'ECMAE (AS)',
+              'mel256-ec-large': 'ECMAE (L)',
+              'mel256-ec-large_st-nopn': 'ECMAE (L+It 3)',
+              'dasheng_base': 'Dasheng (B)',
+              'dasheng_06B': 'Dasheng (XL)',
+              'dasheng_12B': 'Dasheng (XXL)',
+              'dasheng_base_ft-as': 'Dasheng (FT)',
               'braindnn_ast': 'AST',
               'braindnn_vggish': 'VGGish',
               'braindnn_wav2vec2': 'Wav2Vec 2.0',
@@ -173,7 +173,7 @@ downstream_scores = {
 
 def assign_color(x, segment_cochdnn=True):
         if '-ec-' in x:
-                return '#5e02c7'
+                return '#4c4c9b'
         elif 'braindnn' in x:
                 if ('kell2018' in x) and segment_cochdnn:
                         return '#f542f5'
@@ -182,13 +182,14 @@ def assign_color(x, segment_cochdnn=True):
                 elif 'spectemp' in x:
                         return '#000000'
                 else:
-                        return '#e3a6ab'         
+                        return '#bc8f8f'       
         elif 'dasheng' in x:
-                return '#42f584'
+                return '#009999'
         elif 'BEATs' in x:
-                return '#f5b042'
+                return '#e69d00'
         else:
-                return '#4287f5'
+                #return '#cc79a7'
+                return '#bc8f8f'
         
 def assign_color_by_domain(x):
         if ('fma' in x) or ('music' in x):
@@ -201,12 +202,12 @@ def assign_color_by_domain(x):
         else:
                 return '#4287f5'
 
-legend_names = {'EnCodecMAE': '#5e02c7',
+legend_names = {'EnCodecMAE': '#4c4c9b',
                 'CochCNN9': '#f542f5',
                 'CochResNet50': '#f542a7',
-                'Dasheng': '#42f584',
-                'BEATs': '#f5b042',
-                'Others': '#e3a6ab'}
+                'Dasheng': '#009999',
+                'BEATs': '#e69d00',
+                'Others': '#bc8f8f'}
 
 model_to_color = {k: assign_color(k) for k in layer_map.keys()}
 domain_to_color = {k: assign_color_by_domain(k) for k in layer_map.keys()}

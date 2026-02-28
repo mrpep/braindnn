@@ -28,7 +28,7 @@ hyp_confs = {
     'initialization': [torch.nn.init.xavier_uniform_, torch.nn.init.xavier_normal_]
 }
 
-def extract_task_embeddings(upstream_model, task_dir, output_dir):
+def extract_task_embeddings(upstream_model, task_dir, output_dir, chunk_size=10000):
     data_filenames = []
     audio_dir = Path(task_dir, str(upstream_model.sr))
     if not audio_dir.exists():
@@ -37,10 +37,11 @@ def extract_task_embeddings(upstream_model, task_dir, output_dir):
     for split in audio_dir.glob('*'):
         embeddings = {}
         labels = {}
+        chunk_paths = []
+        #outdir.parent.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        wav_len = len(list(split.rglob('*.wav')))
         outdir = Path(output_dir, split.stem + '.pkl')
-        data_filenames.append(outdir)
-        outdir.parent.mkdir(parents=True, exist_ok=True)
-
         if not outdir.exists():
             with open(Path(task_dir, split.stem+'.json'), 'r') as f:
                 label_data = json.load(f)
@@ -50,10 +51,32 @@ def extract_task_embeddings(upstream_model, task_dir, output_dir):
                 feats = {k:v for k,v in feats.items() if k in layer_map[upstream_model.model]}
                 embeddings[fname.stem] = feats
                 labels[fname.stem] = label_data[fname.name]
-
+                if (i > 0) and (i % chunk_size == 0):
+                    outdir = Path(output_dir, split.stem + f'_{i}' + '.pkl')
+                    chunk_paths.append(outdir)
+                    joblib.dump({'embeddings': embeddings,
+                                 'labels': labels}, outdir)
+                    embeddings = {}
+                    labels = {}
+            outdir = Path(output_dir, split.stem + f'_{wav_len}' + '.pkl')
             joblib.dump({'embeddings': embeddings,
                         'labels': labels}, outdir)
-    
+            chunk_paths.append(outdir)
+            embeddings = {}
+            labels = {}
+            for chunk_path in chunk_paths:
+                chunk_data = joblib.load(chunk_path)
+                embeddings.update(chunk_data['embeddings'])
+                labels.update(chunk_data['labels'])
+            outdir = Path(output_dir, split.stem + '.pkl')
+            joblib.dump({'embeddings': embeddings,
+                        'labels': labels}, outdir)
+            data_filenames.append(outdir)
+            for cp in chunk_paths:
+                cp.unlink()
+        else:
+            data_filenames.append(outdir)
+
     return data_filenames
 
 def multilabel_to_ohv(data, num_labels):

@@ -119,7 +119,8 @@ def make_correlation_plot(df, xcol, ycol,
                           xlabel=None,
                           ylabel=None,
                           color_by='model',
-                          annotate_uniques=True):
+                          annotate_uniques=True,
+                          text_fontsize=10):
     df = df.loc[df['model'] != 'topline']
     x = df[xcol].values
     y = df[ycol].values
@@ -157,7 +158,7 @@ def make_correlation_plot(df, xcol, ycol,
         for mi, xi, yi in zip(models, x, y):
             if mi in unique_labels:
                 xi, yi = too_close(h, xi+0.03, yi)
-                ax.text(xi, yi, unique_labels[mi])
+                ax.text(xi, yi, unique_labels[mi], fontsize=text_fontsize,)
                 h.append((xi, yi))
         
     # force a draw so transforms are up-to-date (important if calling before show)
@@ -201,7 +202,7 @@ def make_correlation_plot(df, xcol, ycol,
         rotation=angle,
         rotation_mode='anchor',
         ha='right', va='center',
-        fontsize=10,
+        fontsize=text_fontsize,
         bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=0.2)
     )
 
@@ -215,8 +216,115 @@ def make_correlation_plot(df, xcol, ycol,
     plt.tight_layout()
     return ax
 
-def make_barplot(df, ycol='REG_NH2015_mean', err=True, spectemp=True, topline=True, xlabel='$R^2$', xlim=0.55):
-    fig, ax = plt.subplots(figsize=(10, 6), nrows=1, ncols=2)
+def make_full_barplot(df, model_order=None, figsize=(15, 15), remove_names=True):
+    fig, ax = plt.subplots(figsize=figsize, nrows=2, ncols=2)
+    
+    # 1. Isolate Baselines
+    spectemp_row = df.loc[df['model'] == 'braindnn_spectemp_filters']
+    topline_row = df.loc[df['model'] == 'topline']
+    
+    # 2. Filter main dataframe
+    # Remove baselines from the main set to be plotted as bars
+    df = df.loc[~df['model'].isin(['braindnn_spectemp_filters', 'topline'])].copy()
+    
+
+    if model_order is not None:
+        df = df.loc[df['model'].isin(model_order)]
+        df['model'] = pd.Categorical(df['model'], categories=model_order, ordered=True)
+        df = df.sort_values('model', ascending=True)
+    else:
+        df = df.sort_values('REG_NH2015_mean', ascending=True)
+
+    # 4. Plotting Loop
+    col_renames = {'REG_NH2015_mean': 'Regression - NH2015', 
+                    'REG_B2021_mean': 'Regression - B2021', 
+                    'rsa_nh2015_max': 'RSA - NH2015', 
+                    'rsa_b2021_max': 'RSA - B2021'}
+    stripe_colors = ['white', '#f2f2f2'] # Alternating white and very light grey
+    for i, ycol in enumerate(['REG_NH2015_mean', 
+                             'REG_B2021_mean', 
+                             'rsa_nh2015_max', 
+                             'rsa_b2021_max']):
+        
+        # Calculate Error Bars for main models
+        err_col = '_'.join(ycol.split('_')[:-1]) + '_se'
+        err = df[err_col].values
+        
+        # Baseline Error Visuals (Gray span)
+        err_mean = spectemp_row[ycol].values[0]
+        err_se = spectemp_row[err_col].values[0]
+        ax[i//2, i%2].axvline(spectemp_row[ycol].values[0], c='gray', linestyle='--', zorder=5)
+        ax[i//2, i%2].axvspan(err_mean - err_se, err_mean + err_se, color='gray', alpha=0.3, zorder=1)
+        
+        # Topline logic (if RSA dataset)
+        if 'max' in ycol:
+            dataset = ycol.split('_')[1].upper()
+            ycol_top = f'rsa_{dataset}_mean'
+            err_col_top = f'rsa_{dataset}_se'
+            top_mean = topline_row[ycol_top].values[0]
+            top_err = topline_row[err_col_top].values[0]
+            # Note: Checking if column exists in topline_row before access is safer
+            if ycol_top in topline_row.columns:
+                ax[i//2, i%2].axvline(top_mean, c='k', linestyle=':', zorder=5)
+                ax[i//2, i%2].axvspan(top_mean - top_err, top_mean + top_err, color='gray', alpha=0.3, zorder=1)
+        
+        # Plot the bars
+        # The dataframe is now sorted, so the bars will respect model_order
+        ax[i//2, i%2].barh(
+            y=df['model'].apply(lambda x: m_to_label[x]), 
+            width=df[ycol],
+            xerr=err,
+            color=df['model'].apply(lambda x: assign_color(x, segment_cochdnn=False)),
+            zorder=3,
+            edgecolor='white', 
+            linewidth=0.7
+        )
+        ax[i//2, i%2].margins(y=0.01)
+        ax[i//2, i%2].yaxis.grid(True, linestyle='--', which='major', color='grey', alpha=0.25)
+        ax[i//2, i%2].spines['top'].set_visible(False)
+        ax[i//2, i%2].spines['right'].set_visible(False)
+        ax[i//2, i%2].set_title(col_renames[ycol]) # Optional: Added title for clarity
+        ax[0,0].set_xlim([0, 0.52])
+        ax[0,1].set_xlim([0, 0.52])
+        ax[1,0].set_xlim([0, 0.8])
+        ax[1,1].set_xlim([0, 0.8])
+        curr_ax = ax[i//2, i%2]
+        for y_pos in range(len(df)):
+            # Draw a rectangle behind the bar
+            # zorder=0 pushes it to the background
+            curr_ax.axhspan(
+                y_pos - 0.5, 
+                y_pos + 0.5, 
+                color=stripe_colors[y_pos % 2], 
+                zorder=0
+            )
+
+        if 'REG' in ycol:
+            xlab = r'$R^2$'
+        else:
+            xlab = r'$\rho$'
+        ax[i//2, i%2].set_xlabel(xlab)
+        if remove_names:
+            ax[0,1].tick_params(axis='y', left=False, labelleft=False)
+            ax[1,1].tick_params(axis='y', left=False, labelleft=False)
+            #ax[0,1].set_yticks([])
+            #ax[1,1].set_yticks([])
+
+    leg_row1_handles = [
+        Patch(facecolor=assign_color('BEATs'), label='BEATs'),
+        Patch(facecolor=assign_color('mel256-ec-base'), label='EnCodecMAE'),
+        Patch(facecolor=assign_color('dasheng'), label='Dasheng'),
+        Patch(facecolor=assign_color('other'), label='Others')
+        ]
+
+    leg1 = fig.legend(handles=leg_row1_handles, loc="lower center", ncol=4, bbox_to_anchor=(0.5, -0.02),bbox_transform=fig.transFigure)
+    plt.tight_layout()
+
+    return fig, ax
+
+
+def make_barplot(df, ycol='REG_NH2015_mean', err=True, spectemp=True, topline=True, xlabel='$R^2$', xlim=0.55, figsize=(10, 6)):
+    fig, ax = plt.subplots(figsize=figsize, nrows=1, ncols=2)
     df = df.sort_values(by=ycol)
     if err:
         err_col = '_'.join(ycol.split('_')[:-1]) + '_se'
@@ -266,7 +374,7 @@ def make_barplot(df, ycol='REG_NH2015_mean', err=True, spectemp=True, topline=Tr
     labels = ['Mixture', 'Audioset', 'FMA', 'LL']
     ax[1].barh(y=[19,18,17,16], 
                width = df_domains[ycol], 
-               color=['#5e02c7']*4,
+               color=[assign_color('mel256-ec-base')]*4,
                xerr=df_domains[err_col])
     ax[1].set_xlim([0,xlim])
     ax[1].set_ylim([-3,21])
@@ -284,8 +392,9 @@ def make_barplot(df, ycol='REG_NH2015_mean', err=True, spectemp=True, topline=Tr
     ax[1].barh(y=xpos, 
                width = df_ft[ycol],
                xerr = df_ft[err_col],
-               color=['#f5b042','#f5b042','#42f584','#42f584'],
-               hatch=['','/','','/'])
+               color = [assign_color('BEATs')]*2 + [assign_color('dasheng')]*2)
+               #color=['#f5b042','#f5b042','#42f584','#42f584'])
+               #hatch=['','/','','/'])
     ax[1].set_yticks(ticks=[13.5,11.5],labels=['BEATs','Dasheng'], fontsize=10)
     ax[1].axhline(8)
     
@@ -302,8 +411,9 @@ def make_barplot(df, ycol='REG_NH2015_mean', err=True, spectemp=True, topline=Tr
     ax[1].barh(y=xpos, 
                width = df_iter[ycol],
                xerr = df_iter[err_col],
-               color=['#f5b042','#f5b042','#f5b042','#5e02c7','#5e02c7','#5e02c7','#5e02c7'],
-               hatch=['','|','||','','|','','|'])
+               color = [assign_color('BEATs')]*3 + [assign_color('mel256-ec-base')]*4)
+               #color=['#f5b042','#f5b042','#f5b042','#5e02c7','#5e02c7','#5e02c7','#5e02c7'],)
+               #hatch=['','|','||','','|','','|'])
     
     custom_legend = [
         Patch(facecolor='b', label='1'),
@@ -312,10 +422,10 @@ def make_barplot(df, ycol='REG_NH2015_mean', err=True, spectemp=True, topline=Tr
     ]
     
     ax[1].set_yticks(ticks=[19,18,17,16,13,12,10,9,6,5,4,2,1,-1,-2],
-                     labels=['Mixture',
-                             'Audioset',
-                             'Music (FMA)',
-                             'Speech (LL)',
+                     labels=['EnCodecMAE',
+                             'EnCodecMAE (AS)',
+                             'EnCodecMAE (FMA)',
+                             'EnCodecMAE (LL)',
                              'BEATs',
                              'BEATs FT',
                              'Dasheng',
@@ -323,24 +433,24 @@ def make_barplot(df, ycol='REG_NH2015_mean', err=True, spectemp=True, topline=Tr
                              'BEATs (Iter 1)',
                              'BEATs (Iter 2)',
                              'BEATs (Iter 3)',
-                             'Mel256→EC (Iter 1)',
-                             'Mel256→EC (Iter 2)',
-                             'Mel256→EC Large (Iter 1)',
-                             'Mel256→EC Large (Iter 2)'])
+                             'EnCodecMAE (Iter 1)',
+                             'EnCodecMAE (Iter 2)',
+                             'EnCodecMAE Large (Iter 1)',
+                             'EnCodecMAE Large (Iter 2)'])
     
     leg_row1_handles = [
-        Patch(facecolor='#f5b042', label='BEATs'),
-        Patch(facecolor='#5e02c7', label='EnCodecMAE'),
-        Patch(facecolor='#42f584', label='Dasheng'),
-        Patch(facecolor='#e3a6ab', label='Others')
+        Patch(facecolor=assign_color('BEATs'), label='BEATs'),
+        Patch(facecolor=assign_color('mel256-ec-base'), label='EnCodecMAE'),
+        Patch(facecolor=assign_color('dasheng'), label='Dasheng'),
+        Patch(facecolor=assign_color('other'), label='Others')
         ]
-    leg_row2_handles = [
-        Patch(facecolor='white', edgecolor='black', hatch='/', label='Finetuned'),
-        Patch(facecolor='white', edgecolor='black', hatch='|', label='Iter 2'),
-        Patch(facecolor='white', edgecolor='black', hatch='||', label='Iter 3'),
-    ]
+    #leg_row2_handles = [
+    #    Patch(facecolor='white', edgecolor='black', hatch='/', label='Finetuned'),
+    #    Patch(facecolor='white', edgecolor='black', hatch='|', label='Iter 2'),
+    #    Patch(facecolor='white', edgecolor='black', hatch='||', label='Iter 3'),
+    #]
     leg1 = fig.legend(handles=leg_row1_handles, loc="lower center", ncol=4, bbox_to_anchor=(0.5, -0.03),bbox_transform=fig.transFigure)
-    leg2 = fig.legend(handles=leg_row2_handles, loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.075),bbox_transform=fig.transFigure)
+    #leg2 = fig.legend(handles=leg_row2_handles, loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.075),bbox_transform=fig.transFigure)
 
     ax[0].set_xlabel(xlabel)
     ax[1].set_xlabel(xlabel)
@@ -365,13 +475,16 @@ def layerwise_rsa(folder, model):
     out['model'] = model
     return out
 
-def plot_components(df):
+def plot_components(df, figsize=(13,13), models=None):
     cols_comp = [f'REG_NH2015comp_{i}' for i in range(6)]
     comp_data = df.set_index('model')
     comp_data = comp_data[cols_comp]
     comp_data = comp_data.loc[comp_data.index.map(lambda x: x!='topline')]
+    if models is not None:
+        models = models + ['braindnn_spectemp_filters']
+        comp_data = comp_data.loc[models]
     component_names = ['LF', 'HF', 'Broadband', 'Pitch', 'Speech', 'Music']
-    fig, ax = plt.subplots(figsize=(13,13), nrows=2, ncols=3)
+    fig, ax = plt.subplots(figsize=figsize, nrows=2, ncols=3)
     for i,c in enumerate(cols_comp):
         comp_i = comp_data[c].sort_values(ascending=True)
         spec = comp_i.loc['braindnn_spectemp_filters']
@@ -379,7 +492,18 @@ def plot_components(df):
         ax[i//3,i%3].barh(y=comp_i.index.map(lambda x: m_to_label[x]), 
                           width=comp_i.values,
                           color=comp_i.index.map(lambda x: assign_color(x, segment_cochdnn=False)))
+        ax[i//3,i%3].margins(y=0.01)
+        ax[i//3, i%3].spines['top'].set_visible(False)
+        ax[i//3, i%3].spines['right'].set_visible(False)
         ax[i//3,i%3].axvline(spec, c='gray')
         ax[i//3,i%3].set_title(component_names[i])
         ax[i//3,i%3].set_xlabel(r'$R^2$')
+    leg_row1_handles = [
+        Patch(facecolor=assign_color('BEATs'), label='BEATs'),
+        Patch(facecolor=assign_color('mel256-ec-base'), label='EnCodecMAE'),
+        Patch(facecolor=assign_color('dasheng'), label='Dasheng'),
+        Patch(facecolor=assign_color('other'), label='Others')
+        ]
+
+    leg1 = fig.legend(handles=leg_row1_handles, loc="lower center", ncol=4, bbox_to_anchor=(0.5, -0.03),bbox_transform=fig.transFigure)
     plt.tight_layout()

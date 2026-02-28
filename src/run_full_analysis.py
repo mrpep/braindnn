@@ -16,8 +16,7 @@ def run_all(model, output_dir, rsa=True, regression=True, downstream=True, rsa_m
             logger.info(f'Running RSA with {dataset}')
             run_rsa(model, dataset, output_dir, method=rsa_method)
     if regression:
-        #for dataset in ['NH2015', 'NH2015comp']:
-        for dataset in ['B2021']:
+        for dataset in ['NH2015','NH2015comp','B2021']:
             logger.info(f'Learning regressors for {dataset}')
             run_regression(model, dataset, output_dir)
     if downstream:
