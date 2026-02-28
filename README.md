@@ -26,3 +26,7 @@ The env variable is to avoid some potential OOM errors when extracting activatio
 Some analysis can be deactivated with flags --downstream=False, --rsa=False or --regression=False
 
 Models used in the paper are listed in the ALL_MODELS variable inside src/specs.py
+
+6) Notebook in notebooks/results.ipynb can be used to recreate the figures.
+
+Pre-calculated results are in outputs/results-summarized.csv
